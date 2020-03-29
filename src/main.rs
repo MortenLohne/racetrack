@@ -140,10 +140,10 @@ fn main() -> Result<()> {
 
 fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
     let builder1 = EngineBuilder {
-        path: "./taik_cpuct_2",
+        path: "./taik_cpuct_1",
     };
     let builder2 = EngineBuilder {
-        path: "./taik_cpuct_3",
+        path: "./taik_cpuct_2",
     };
     let mut engine1 = builder1.init().unwrap();
     let mut engine2 = builder2.init().unwrap();
@@ -152,7 +152,7 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
     engine2.initialize()?;
 
     let settings = Settings {
-        concurrency: 3,
+        concurrency: 2,
         time_per_move: Duration::from_millis(1000),
         openings,
         num_minimatches: 106,
@@ -232,7 +232,7 @@ fn play_match(
 
     println!(
         "{} vs {}: +{}-{}={}",
-        engine1_name, engine2_name, engine1_wins, draws, engine2_wins
+        engine1_name, engine2_name, engine1_wins, engine2_wins, draws
     );
 
     Ok(games)
