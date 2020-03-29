@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use crate::engine::EngineBuilder;
 use crate::game::play_game;
-use board_game_traits::board::GameResult::*;
 use board_game_traits::board::Board as BoardTrait;
+use board_game_traits::board::GameResult::*;
 use pgn_traits::pgn::PgnBoard;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
@@ -147,11 +147,6 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
     let builder2 = EngineBuilder {
         path: "./taik_cpuct_2",
     };
-    let mut engine1 = builder1.init().unwrap();
-    let mut engine2 = builder2.init().unwrap();
-
-    engine1.initialize()?;
-    engine2.initialize()?;
 
     let settings = Settings {
         concurrency: 2,
@@ -171,9 +166,7 @@ fn play_match(
     let engines: Vec<_> = (0..settings.concurrency)
         .map(|_| {
             let mut engine1 = engine1.init().unwrap();
-            engine1.initialize().unwrap();
             let mut engine2 = engine2.init().unwrap();
-            engine2.initialize().unwrap();
             (Arc::new(Mutex::new(engine1)), Arc::new(Mutex::new(engine2)))
         })
         .collect();
