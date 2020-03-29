@@ -1,18 +1,20 @@
-use std::io::{BufRead, BufReader, Result, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::io::Result;
 use std::time::Duration;
 
+use crate::engine::EngineBuilder;
+use crate::game::play_game;
 use board_game_traits::board::GameResult::*;
-use board_game_traits::board::{Board as BoardTrait, Color};
+use board_game_traits::board::Board as BoardTrait;
 use pgn_traits::pgn::PgnBoard;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
-use std::io;
 use std::sync::{Arc, Mutex};
 use taik::board::{Board, Move, Piece, TunableBoard};
 use taik::mcts;
-use taik::pgn_writer;
 use taik::pgn_writer::Game;
+
+mod engine;
+mod game;
 
 fn main() -> Result<()> {
     let opening_move_texts: [&[&str]; 106] = [
@@ -216,8 +218,8 @@ fn play_match(
     let mut draws = 0;
     let mut engine2_wins = 0;
 
-    let engine1_name = &engines[0].0.lock().unwrap().name;
-    let engine2_name = &engines[0].1.lock().unwrap().name;
+    let engine1_name = &engines[0].0.lock().unwrap().name().to_string();
+    let engine2_name = &engines[0].1.lock().unwrap().name().to_string();
 
     for game in games.iter() {
         let (_, white_name) = game.tags.iter().find(|(tag, _val)| tag == "White").unwrap();
@@ -238,143 +240,8 @@ fn play_match(
     Ok(games)
 }
 
-fn play_game<'a>(
-    settings: &Settings,
-    mut white: &'a mut Engine,
-    mut black: &'a mut Engine,
-    opening: &[Move],
-    round: u64,
-) -> Result<Game<Board>> {
-    let mut board = Board::start_board();
-    let mut moves: Vec<Move> = opening.to_vec();
-    for mv in moves.iter() {
-        board.do_move(mv.clone());
-    }
-    while board.game_result().is_none() {
-        if board.half_moves_played() > 200 {
-            break;
-        }
-        let engine_to_move = match board.side_to_move() {
-            Color::White => &mut white,
-            Color::Black => &mut black,
-        };
-        write!(engine_to_move.stdin, "position startpos moves ")?;
-        for mv in moves.iter() {
-            write!(engine_to_move.stdin, "{} ", mv)?;
-        }
-        writeln!(engine_to_move.stdin)?;
-        writeln!(
-            engine_to_move.stdin,
-            "go movetime {}",
-            settings.time_per_move.as_millis()
-        )?;
-        engine_to_move.stdin.flush()?;
-
-        loop {
-            let input = engine_to_move.read_line()?;
-            if input.starts_with("bestmove") {
-                let move_string = input.split_whitespace().nth(1).unwrap();
-                let mv = board.move_from_san(move_string).unwrap();
-                moves.push(mv.clone());
-                board.do_move(mv);
-                break;
-            }
-        }
-    }
-
-    let moves_with_comments: Vec<_> = moves.into_iter().map(|mv| (mv, String::new())).collect();
-
-    let game = Game {
-        start_board: Board::start_board(),
-        moves: moves_with_comments.clone(),
-        game_result: board.game_result(),
-        tags: vec![
-            ("White".to_string(), white.name.clone()),
-            ("Black".to_string(), black.name.clone()),
-            ("Round".to_string(), round.to_string()),
-        ],
-    };
-
-    pgn_writer::game_to_pgn(
-        &mut game.start_board.clone(),
-        &moves_with_comments,
-        "",
-        "",
-        "",
-        &round.to_string(),
-        &white.name,
-        &black.name,
-        board.game_result(),
-        &[],
-        &mut io::stdout(),
-    )?;
-
-    Ok(game)
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
-struct EngineBuilder<'a> {
-    path: &'a str,
-}
-
-impl<'a> EngineBuilder<'a> {
-    fn init(&self) -> Result<Engine> {
-        Command::new(&self.path)
-            .stdout(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()
-            .map(|mut child| {
-                let stdout = BufReader::new(child.stdout.take().unwrap());
-                let stdin = child.stdin.take().unwrap();
-                Engine {
-                    child,
-                    stdout,
-                    stdin,
-                    name: self.path.to_string(),
-                }
-            })
-    }
-}
-
-struct Engine {
-    child: Child,
-    stdout: BufReader<ChildStdout>,
-    stdin: ChildStdin,
-    name: String,
-}
-
-impl Engine {
-    fn read_line(&mut self) -> Result<String> {
-        let mut input = String::new();
-        if let Ok(0) = self.stdout.read_line(&mut input) {
-            Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "Read 0 bytes from engine",
-            ))
-        } else {
-            Ok(input)
-        }
-    }
-
-    fn initialize(&mut self) -> Result<()> {
-        writeln!(self.stdin, "uti")?;
-        self.stdin.flush()?;
-
-        while self.read_line()?.trim() != "utiok" {}
-
-        writeln!(self.stdin, "isready")?;
-        self.stdin.flush()?;
-
-        while self.read_line()?.trim() != "readyok" {}
-
-        writeln!(self.stdin, "utinewgame")?;
-        self.stdin.flush()?;
-        Ok(())
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-struct Settings {
+pub struct Settings {
     concurrency: usize,
     time_per_move: Duration,
     num_minimatches: u64,
