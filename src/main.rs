@@ -15,6 +15,7 @@ use taik::pgn_writer::Game;
 
 mod engine;
 mod game;
+mod uci_parser;
 
 fn main() -> Result<()> {
     let opening_move_texts: [&[&str]; 106] = [
