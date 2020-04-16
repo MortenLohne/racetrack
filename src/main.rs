@@ -152,7 +152,7 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
     };
 
     let settings = Settings {
-        concurrency: 2,
+        concurrency: 1,
         time_per_move: Duration::from_millis(1000),
         openings,
         num_minimatches: 106,
@@ -168,8 +168,8 @@ fn play_match(
 ) -> Result<Vec<Game<Board>>> {
     let engines: Vec<_> = (0..settings.concurrency)
         .map(|_| {
-            let mut engine1 = engine1.init().unwrap();
-            let mut engine2 = engine2.init().unwrap();
+            let engine1 = engine1.init().unwrap();
+            let engine2 = engine2.init().unwrap();
             (Arc::new(Mutex::new(engine1)), Arc::new(Mutex::new(engine2)))
         })
         .collect();

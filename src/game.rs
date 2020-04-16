@@ -23,7 +23,10 @@ where
     for mv in moves.iter() {
         board.do_move(mv.clone());
     }
+    white.uci_write_line("utinewgame")?;
+    black.uci_write_line("utinewgame")?;
     for _ in 0..200 {
+        // TODO: Choose max game length
         if board.game_result().is_some() {
             break;
         }

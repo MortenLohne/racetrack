@@ -139,7 +139,11 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
         },
         "string" => {
             if default.len() > 1 && default.contains(&"<empty>") {
-                return Err(UciError::new_parse_error(format!("Wrong default value {} for {}. Cannot both be empty and non-empty", default.join(" "), name)))
+                return Err(UciError::new_parse_error(format!(
+                    "Wrong default value {} for {}. Cannot both be empty and non-empty",
+                    default.join(" "),
+                    name
+                )));
             }
             let default: String = if default == vec!["<empty>"] {
                 String::new()
@@ -151,6 +155,11 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
                 option_type: UciOptionType::String(default),
             }
         }
-        s => return Err(UciError::new_parse_error(format!("Option {} has invalid type {}", name, s))),
+        s => {
+            return Err(UciError::new_parse_error(format!(
+                "Option {} has invalid type {}",
+                name, s
+            )))
+        }
     })
 }
