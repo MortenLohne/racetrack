@@ -15,6 +15,8 @@ use taik::pgn_writer::Game;
 
 mod engine;
 mod game;
+#[cfg(test)]
+mod tests;
 mod uci_parser;
 
 fn main() -> Result<()> {
