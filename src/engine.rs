@@ -1,9 +1,9 @@
 use crate::uci::parser::parse_option;
+use std::io;
 use std::io::Result;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::string::ToString;
-use std::io;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EngineBuilder<'a> {

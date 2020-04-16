@@ -1,5 +1,5 @@
-use crate::uci::{UciOption, UciOptionType, parser};
-use crate::{engine, };
+use crate::engine;
+use crate::uci::{parser, UciOption, UciOptionType};
 
 #[test]
 fn parse_check_option_description() {

@@ -39,7 +39,7 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     let mut max = vec![];
     let mut var = vec![];
 
-    while let Some(word) = words_iter.next() {
+    for word in words_iter {
         if let Some(new_parser_state) = ParserState::from_keyword(word) {
             parser_state = Some(new_parser_state);
             if new_parser_state == ParserState::Var {
@@ -63,7 +63,7 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
         }
     }
 
-    if name.len() == 0 {
+    if name.is_empty() {
         return Err(UciError::new_root(
             UciErrorKind::InvalidOption,
             format!("Got option string without a name \"{}\"", input),
