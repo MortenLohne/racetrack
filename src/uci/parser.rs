@@ -1,4 +1,4 @@
-use crate::engine::{UciError, UciErrorKind, UciOption, UciOptionType};
+use crate::uci::{UciError, UciErrorKind, UciOption, UciOptionType};
 use std::result;
 use std::str::FromStr;
 

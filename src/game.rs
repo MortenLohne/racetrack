@@ -1,5 +1,5 @@
 use crate::engine::Engine;
-use crate::Settings;
+use crate::TournamentSettings;
 use board_game_traits::board::{Board as BoardTrait, Color};
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
@@ -9,7 +9,7 @@ use taik::pgn_writer;
 use taik::pgn_writer::Game;
 
 pub fn play_game<'a, B: BoardTrait + PgnBoard + Clone>(
-    settings: &Settings,
+    settings: &TournamentSettings,
     mut white: &'a mut Engine,
     mut black: &'a mut Engine,
     opening: &[B::Move],

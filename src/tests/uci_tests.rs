@@ -1,13 +1,13 @@
-use crate::engine::UciOptionType;
-use crate::{engine, uci_parser};
+use crate::uci::{UciOption, UciOptionType, parser};
+use crate::{engine, };
 
 #[test]
 fn parse_check_option_description() {
     let option_string = "option name hard mode type check default false";
 
     assert_eq!(
-        uci_parser::parse_option(option_string).unwrap(),
-        engine::UciOption {
+        parser::parse_option(option_string).unwrap(),
+        UciOption {
             name: "hard mode".to_string(),
             option_type: UciOptionType::Check(false)
         }
@@ -19,8 +19,8 @@ fn parse_spin_option_description() {
     let option_string = "option name Threads type spin min 1 max 256 default 1";
 
     assert_eq!(
-        uci_parser::parse_option(option_string).unwrap(),
-        engine::UciOption {
+        parser::parse_option(option_string).unwrap(),
+        UciOption {
             name: "Threads".to_string(),
             option_type: UciOptionType::Spin(1, 1, 256)
         }
@@ -33,8 +33,8 @@ fn parse_var_option_description() {
         "option name Chess Variant type combo var Normal Chess var Crazyhouse default Normal Chess";
 
     assert_eq!(
-        uci_parser::parse_option(option_string).unwrap(),
-        engine::UciOption {
+        parser::parse_option(option_string).unwrap(),
+        UciOption {
             name: "Chess Variant".to_string(),
             option_type: UciOptionType::Combo(
                 "Normal Chess".to_string(),
@@ -49,8 +49,8 @@ fn parse_empty_default() {
     let option_string = "option name NalimovPath type string default <empty>";
 
     assert_eq!(
-        uci_parser::parse_option(option_string).unwrap(),
-        engine::UciOption {
+        parser::parse_option(option_string).unwrap(),
+        UciOption {
             name: "NalimovPath".to_string(),
             option_type: UciOptionType::String("".to_string())
         }
@@ -61,5 +61,5 @@ fn parse_empty_default() {
 fn parse_option_description_without_name() {
     let option_string = "option Threads type spin min 1 max 256 default 1";
 
-    assert!(uci_parser::parse_option(option_string).is_err())
+    assert!(parser::parse_option(option_string).is_err())
 }

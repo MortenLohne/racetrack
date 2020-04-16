@@ -17,7 +17,7 @@ mod engine;
 mod game;
 #[cfg(test)]
 mod tests;
-mod uci_parser;
+pub mod uci;
 
 fn main() -> Result<()> {
     let opening_move_texts: [&[&str]; 106] = [
@@ -151,7 +151,7 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
         path: "./taik_cpuct_2",
     };
 
-    let settings = Settings {
+    let settings = TournamentSettings {
         concurrency: 1,
         time_per_move: Duration::from_millis(1000),
         openings,
@@ -162,7 +162,7 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
 }
 
 fn play_match(
-    settings: &Settings,
+    settings: &TournamentSettings,
     engine1: EngineBuilder,
     engine2: EngineBuilder,
 ) -> Result<Vec<Game<Board>>> {
@@ -237,7 +237,7 @@ fn play_match(
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Settings {
+pub struct TournamentSettings {
     concurrency: usize,
     time_per_move: Duration,
     num_minimatches: u64,
