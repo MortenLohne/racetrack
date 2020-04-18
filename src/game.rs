@@ -1,14 +1,12 @@
 use crate::engine::Engine;
+use crate::pgn_writer::Game;
 use crate::r#match::TournamentSettings;
 use board_game_traits::board::{Board as BoardTrait, Color};
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
-use std::io;
 use std::io::Result;
-use taik::pgn_writer;
-use taik::pgn_writer::Game;
 
-pub fn play_game<'a, B: BoardTrait + PgnBoard + Clone>(
+pub fn play_game<'a, B: PgnBoard + Clone>(
     settings: &TournamentSettings<B>,
     mut white: &'a mut Engine,
     mut black: &'a mut Engine,
@@ -42,6 +40,7 @@ where
             write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
             position_board.do_move(mv.clone());
         }
+
         engine_to_move.uci_write_line(&position_string)?;
 
         engine_to_move.uci_write_line(&format!(
@@ -73,20 +72,5 @@ where
             ("Round".to_string(), round.to_string()),
         ],
     };
-
-    pgn_writer::game_to_pgn(
-        &mut game.start_board.clone(),
-        &moves_with_comments,
-        "",
-        "",
-        "",
-        &round.to_string(),
-        &white.name(),
-        &black.name(),
-        board.game_result(),
-        &[],
-        &mut io::stdout(),
-    )?;
-
     Ok(game)
 }

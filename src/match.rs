@@ -1,14 +1,14 @@
 use crate::engine::EngineBuilder;
 use crate::game::play_game;
+use crate::pgn_writer::Game;
 use board_game_traits::board::Board;
 use board_game_traits::board::GameResult::*;
 use pgn_traits::pgn::PgnBoard;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
-use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use taik::pgn_writer::Game;
+use std::io;
 
 pub fn play_match<B>(
     settings: &TournamentSettings<B>,
@@ -17,7 +17,7 @@ pub fn play_match<B>(
 ) -> Result<Vec<Game<B>>, io::Error>
 where
     B: PgnBoard + Clone + Send,
-    <B as Board>::Move: Send + Sync,
+    <B as Board>::Move: Send + Sync
 {
     let engines: Vec<_> = (0..settings.concurrency)
         .map(|_| {
@@ -40,25 +40,41 @@ where
             let mut white = engines[thread_index].0.try_lock().unwrap();
             let mut black = engines[thread_index].1.try_lock().unwrap();
 
-            vec![
-                play_game(
-                    &settings,
-                    &mut white,
-                    &mut black,
-                    &settings.openings[round as usize % settings.openings.len()],
-                    round,
-                ),
-                play_game(
-                    &settings,
-                    &mut black,
-                    &mut white,
-                    &settings.openings[round as usize % settings.openings.len()],
-                    round,
-                ),
-            ]
+            println!("Starting game {}, {} vs {}.", round * 2, white.name(), black.name());
+
+            let game1 = play_game(
+                &settings,
+                &mut white,
+                &mut black,
+                &settings.openings[round as usize % settings.openings.len()],
+                round,
+            )
+            .unwrap();
+
+            {
+                let mut writer = settings.pgn_writer.lock().unwrap();
+                writer.submit_game(round * 2, game1.clone());
+            }
+
+            println!("Starting game {}, {} vs {}.", round * 2 + 1, black.name(), white.name());
+
+            let game2 = play_game(
+                &settings,
+                &mut black,
+                &mut white,
+                &settings.openings[round as usize % settings.openings.len()],
+                round,
+            )
+            .unwrap();
+
+            {
+                let mut writer = settings.pgn_writer.lock().unwrap();
+                writer.submit_game(round * 2 + 1, game2.clone());
+            }
+
+            vec![game1, game2]
         })
         .flatten()
-        .map(Result::unwrap)
         .collect();
 
     println!("Played {} games.", games.len());
@@ -89,10 +105,44 @@ where
     Ok(games)
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TournamentSettings<B: Board> {
+pub struct TournamentSettings<B: PgnBoard> {
     pub concurrency: usize,
     pub time_per_move: Duration,
     pub num_minimatches: u64,
     pub openings: Vec<Vec<B::Move>>,
+    pub pgn_writer: Mutex<PgnWriter<B>>,
+}
+
+pub struct PgnWriter<B: Board> {
+    pgn_out: Box<dyn io::Write + Send>,
+    pending_games: Vec<(u64, Game<B>)>,
+    next_game_number: u64,
+}
+
+impl<B: PgnBoard + Clone> PgnWriter<B> {
+    pub fn new<W: io::Write + Send + 'static>(pgn_out: W) -> Self {
+        PgnWriter {
+            pgn_out: Box::new(pgn_out),
+            pending_games: vec![],
+            next_game_number: 0,
+        }
+    }
+
+    pub fn submit_game(&mut self, game_number: u64, game: Game<B>) {
+        self.pending_games.push((game_number, game));
+        self.pending_games
+            .sort_by_key(|(game_number, _)| *game_number);
+        self.try_write_games().unwrap();
+    }
+
+    fn try_write_games(&mut self) -> io::Result<()> {
+        println!("Next game: {}, pending: {:?}", self.next_game_number, self.pending_games.iter().map(|(a, _b)| a).collect::<Vec<_>>());
+        while !self.pending_games.is_empty() && self.pending_games[0].0 == self.next_game_number {
+            let game = self.pending_games.pop().unwrap().1;
+            game.game_to_pgn(&mut self.pgn_out)?;
+            self.next_game_number += 1;
+        }
+        self.pgn_out.flush()?;
+        Ok(())
+    }
 }

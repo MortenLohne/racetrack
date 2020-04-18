@@ -1,15 +1,18 @@
-use std::io::Result;
+use std::io::{BufWriter, Result};
 use std::time::Duration;
 
 use crate::engine::EngineBuilder;
 use board_game_traits::board::Board as BoardTrait;
 use pgn_traits::pgn::PgnBoard;
+use std::fs;
+use std::sync::Mutex;
 use taik::board::{Board, Move, Piece, TunableBoard};
 use taik::mcts;
 
 mod engine;
 mod game;
 mod r#match;
+pub mod pgn_writer;
 #[cfg(test)]
 mod tests;
 pub mod uci;
@@ -151,6 +154,9 @@ fn run_match(openings: Vec<Vec<Move>>) -> Result<()> {
         time_per_move: Duration::from_millis(1000),
         openings,
         num_minimatches: 106,
+        pgn_writer: Mutex::new(r#match::PgnWriter::new(BufWriter::new(
+            fs::OpenOptions::new().create(true).append(true).open("out.pgn").unwrap(),
+        ))),
     };
     let games = r#match::play_match(&settings, builder1, builder2);
     Ok(())
