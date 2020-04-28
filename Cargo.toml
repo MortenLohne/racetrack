@@ -11,3 +11,4 @@ board-game-traits = "0.1"
 pgn-traits = "0.1.0"
 taik = { git = "https://github.com/MortenLohne/taik", features = ["pgn-writer"] }
 rayon = "1.3"
+clap = "2.33"

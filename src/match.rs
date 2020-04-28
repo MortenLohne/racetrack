@@ -6,9 +6,9 @@ use board_game_traits::board::GameResult::*;
 use pgn_traits::pgn::PgnBoard;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::io;
 
 pub fn play_match<B>(
     settings: &TournamentSettings<B>,
@@ -17,7 +17,7 @@ pub fn play_match<B>(
 ) -> Result<Vec<Game<B>>, io::Error>
 where
     B: PgnBoard + Clone + Send,
-    <B as Board>::Move: Send + Sync
+    <B as Board>::Move: Send + Sync,
 {
     let engines: Vec<_> = (0..settings.concurrency)
         .map(|_| {
@@ -40,7 +40,12 @@ where
             let mut white = engines[thread_index].0.try_lock().unwrap();
             let mut black = engines[thread_index].1.try_lock().unwrap();
 
-            println!("Starting game {}, {} vs {}.", round * 2, white.name(), black.name());
+            println!(
+                "Starting game {}, {} vs {}.",
+                round * 2,
+                white.name(),
+                black.name()
+            );
 
             let game1 = play_game(
                 &settings,
@@ -52,11 +57,17 @@ where
             .unwrap();
 
             {
-                let mut writer = settings.pgn_writer.lock().unwrap();
-                writer.submit_game(round * 2, game1.clone());
+                if let Some(ref writer) = settings.pgn_writer {
+                    writer.lock().unwrap().submit_game(round * 2, game1.clone());
+                }
             }
 
-            println!("Starting game {}, {} vs {}.", round * 2 + 1, black.name(), white.name());
+            println!(
+                "Starting game {}, {} vs {}.",
+                round * 2 + 1,
+                black.name(),
+                white.name()
+            );
 
             let game2 = play_game(
                 &settings,
@@ -68,8 +79,9 @@ where
             .unwrap();
 
             {
-                let mut writer = settings.pgn_writer.lock().unwrap();
-                writer.submit_game(round * 2 + 1, game2.clone());
+                if let Some(ref writer) = settings.pgn_writer {
+                    writer.lock().unwrap().submit_game(round * 2, game1.clone());
+                }
             }
 
             vec![game1, game2]
@@ -110,9 +122,11 @@ pub struct TournamentSettings<B: PgnBoard> {
     pub time_per_move: Duration,
     pub num_minimatches: u64,
     pub openings: Vec<Vec<B::Move>>,
-    pub pgn_writer: Mutex<PgnWriter<B>>,
+    pub pgn_writer: Option<Mutex<PgnWriter<B>>>,
 }
 
+/// A wrapper around a `Write` instance, to ensure that PGNs are written in order
+///
 pub struct PgnWriter<B: Board> {
     pgn_out: Box<dyn io::Write + Send>,
     pending_games: Vec<(u64, Game<B>)>,
@@ -136,7 +150,14 @@ impl<B: PgnBoard + Clone> PgnWriter<B> {
     }
 
     fn try_write_games(&mut self) -> io::Result<()> {
-        println!("Next game: {}, pending: {:?}", self.next_game_number, self.pending_games.iter().map(|(a, _b)| a).collect::<Vec<_>>());
+        println!(
+            "Next game: {}, pending: {:?}",
+            self.next_game_number,
+            self.pending_games
+                .iter()
+                .map(|(a, _b)| a)
+                .collect::<Vec<_>>()
+        );
         while !self.pending_games.is_empty() && self.pending_games[0].0 == self.next_game_number {
             let game = self.pending_games.pop().unwrap().1;
             game.game_to_pgn(&mut self.pgn_out)?;
