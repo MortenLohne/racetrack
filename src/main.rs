@@ -48,13 +48,15 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
         time_per_move: Duration::from_millis(1000),
         openings,
         num_minimatches: 106,
-        pgn_writer: cli_args.pgnout.map(|pgnout| Mutex::new(r#match::PgnWriter::new(BufWriter::new(
-            fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(pgnout)
-                .unwrap(),
-        )))),
+        pgn_writer: cli_args.pgnout.map(|pgnout| {
+            Mutex::new(r#match::PgnWriter::new(BufWriter::new(
+                fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(pgnout)
+                    .unwrap(),
+            )))
+        }),
     };
     let games = r#match::play_match(
         &settings,

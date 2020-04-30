@@ -21,6 +21,7 @@ where
 {
     let engines: Vec<_> = (0..settings.concurrency)
         .map(|_| {
+            // TODO: Handle error
             let engine1 = engine1.init().unwrap();
             let engine2 = engine2.init().unwrap();
             (Arc::new(Mutex::new(engine1)), Arc::new(Mutex::new(engine2)))

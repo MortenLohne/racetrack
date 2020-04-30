@@ -55,7 +55,7 @@ pub fn parse_cli_arguments() -> CliOptions {
         rounds: matches.value_of("rounds").map(|r| r.parse().unwrap()),
         games: matches.value_of("games").map(|r| r.parse().unwrap()),
         engine_paths: matches
-            .values_of("engines")
+            .values_of("engine-path")
             .map(|values| values.map(|s| s.to_string()).collect())
             .unwrap_or(vec![]),
         pgnout: matches.value_of("file").map(|s| s.to_string()),

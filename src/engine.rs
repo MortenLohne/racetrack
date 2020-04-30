@@ -1,7 +1,9 @@
 use crate::uci::parser::parse_option;
+use std::env;
 use std::io;
 use std::io::Result;
 use std::io::{BufRead, BufReader, Write};
+use std::path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::string::ToString;
 
@@ -13,7 +15,13 @@ pub struct EngineBuilder<'a> {
 impl<'a> EngineBuilder<'a> {
     /// Initialize the engine, including starting the binary and reading the engine's available uci commands.
     pub fn init(&self) -> Result<Engine> {
-        let mut child = Command::new(&self.path)
+        // TODO: Error for not permission to current directory
+        let mut absolute_path = env::current_dir()?;
+
+        absolute_path.push(self.path);
+        // TODO: More helpful error message if engine binary is not found.
+        // For example, print contents of directory searched?
+        let mut child = Command::new(&absolute_path)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .spawn()?;
