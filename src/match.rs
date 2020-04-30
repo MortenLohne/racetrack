@@ -53,7 +53,7 @@ where
                 &mut white,
                 &mut black,
                 &settings.openings[round as usize % settings.openings.len()],
-                round,
+                game_number,
             )
             .unwrap();
 
@@ -79,7 +79,7 @@ where
                 &mut black,
                 &mut white,
                 &settings.openings[round as usize % settings.openings.len()],
-                round,
+                game_number,
             )
             .unwrap();
 
@@ -88,7 +88,7 @@ where
                     writer
                         .lock()
                         .unwrap()
-                        .submit_game(game_number, game1.clone());
+                        .submit_game(game_number, game2.clone());
                 }
             }
 
