@@ -52,14 +52,13 @@ impl<B: PgnBoard + Clone> Game<B> {
             }
         )?;
 
-        if self.start_board != B::start_board() {
-            if tags
+        if self.start_board != B::start_board()
+            && tags
                 .iter()
                 .find(|(tag, _)| tag.eq_ignore_ascii_case("FEN"))
                 .is_none()
-            {
-                writeln!(f, "[FEN \"{}\"", self.start_board.to_fen())?;
-            }
+        {
+            writeln!(f, "[FEN \"{}\"", self.start_board.to_fen())?;
         }
 
         let mut board = self.start_board.clone();

@@ -64,7 +64,7 @@ where
 
     let game = Game {
         start_board: B::start_board(),
-        moves: moves_with_comments.clone(),
+        moves: moves_with_comments,
         game_result: board.game_result(),
         tags: vec![
             ("White".to_string(), white.name().to_string()),

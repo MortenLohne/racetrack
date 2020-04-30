@@ -84,7 +84,7 @@ impl Engine {
 
     pub fn uci_write_line(&mut self, line: &str) -> Result<()> {
         writeln!(self.stdin, "{}", line)?;
-        println!("> {}: {}", self.name, line);
+        // println!("> {}: {}", self.name, line);
         self.stdin.flush()
     }
 
@@ -96,7 +96,8 @@ impl Engine {
                 "Read 0 bytes from engine",
             ))
         } else {
-            print!("< {}: {}", self.name, input);
+            // print!("< {}: {}", self.name, input);
+            // io::stdout().flush()?;
             Ok(input)
         }
     }

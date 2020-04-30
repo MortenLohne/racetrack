@@ -40,10 +40,10 @@ where
 
             let mut white = engines[thread_index].0.try_lock().unwrap();
             let mut black = engines[thread_index].1.try_lock().unwrap();
-
+            let game_number = round * 2;
             println!(
                 "Starting game {}, {} vs {}.",
-                round * 2,
+                game_number,
                 white.name(),
                 black.name()
             );
@@ -59,13 +59,17 @@ where
 
             {
                 if let Some(ref writer) = settings.pgn_writer {
-                    writer.lock().unwrap().submit_game(round * 2, game1.clone());
+                    writer
+                        .lock()
+                        .unwrap()
+                        .submit_game(game_number, game1.clone());
                 }
             }
 
+            let game_number = round * 2 + 1;
             println!(
                 "Starting game {}, {} vs {}.",
-                round * 2 + 1,
+                game_number,
                 black.name(),
                 white.name()
             );
@@ -81,7 +85,10 @@ where
 
             {
                 if let Some(ref writer) = settings.pgn_writer {
-                    writer.lock().unwrap().submit_game(round * 2, game1.clone());
+                    writer
+                        .lock()
+                        .unwrap()
+                        .submit_game(game_number, game1.clone());
                 }
             }
 
@@ -160,7 +167,7 @@ impl<B: PgnBoard + Clone> PgnWriter<B> {
                 .collect::<Vec<_>>()
         );
         while !self.pending_games.is_empty() && self.pending_games[0].0 == self.next_game_number {
-            let game = self.pending_games.pop().unwrap().1;
+            let game = self.pending_games.remove(0).1;
             game.game_to_pgn(&mut self.pgn_out)?;
             self.next_game_number += 1;
         }
