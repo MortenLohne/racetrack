@@ -158,6 +158,12 @@ impl<B: PgnBoard + Clone> PgnWriter<B> {
     }
 
     fn try_write_games(&mut self) -> io::Result<()> {
+        while !self.pending_games.is_empty() && self.pending_games[0].0 == self.next_game_number {
+            let game = self.pending_games.remove(0).1;
+            game.game_to_pgn(&mut self.pgn_out)?;
+            self.next_game_number += 1;
+        }
+        self.pgn_out.flush()?;
         println!(
             "Next game: {}, pending: {:?}",
             self.next_game_number,
@@ -166,12 +172,6 @@ impl<B: PgnBoard + Clone> PgnWriter<B> {
                 .map(|(a, _b)| a)
                 .collect::<Vec<_>>()
         );
-        while !self.pending_games.is_empty() && self.pending_games[0].0 == self.next_game_number {
-            let game = self.pending_games.remove(0).1;
-            game.game_to_pgn(&mut self.pgn_out)?;
-            self.next_game_number += 1;
-        }
-        self.pgn_out.flush()?;
         Ok(())
     }
 }

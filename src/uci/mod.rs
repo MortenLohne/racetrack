@@ -1,3 +1,4 @@
+use board_game_traits::board::Board;
 use std::error::Error;
 use std::fmt;
 
@@ -40,7 +41,8 @@ impl fmt::Display for UciError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
             UciErrorKind::ParseError => write!(f, "Uci parser error. {}", self.desc)?,
-            UciErrorKind::InvalidOption => write!(f, "invalid option description. {}", self.desc)?,
+            UciErrorKind::InvalidOption => write!(f, "Invalid option description. {}", self.desc)?,
+            UciErrorKind::MissingField => write!(f, "Missing field. {}", self.desc)?,
         }
         if let Some(ref source) = self.source {
             write!(f, ". Caused by: {}", source)?
@@ -53,6 +55,7 @@ impl fmt::Display for UciError {
 pub enum UciErrorKind {
     ParseError,
     InvalidOption,
+    MissingField,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq)]
@@ -68,4 +71,15 @@ pub enum UciOptionType {
     Combo(String, Vec<String>), // Contains current value, predefined values
     Button,
     String(String), // Contains the current value
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct UciInfo<B: Board> {
+    pub depth: u16,
+    pub seldepth: u16,
+    pub time: i64,
+    pub nodes: u64,
+    pub hashfull: f64,
+    pub cp_score: i64,
+    pub pv: Vec<B::Move>, // One or more principal variations, sorted from best to worst
 }

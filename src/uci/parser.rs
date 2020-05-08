@@ -1,4 +1,5 @@
-use crate::uci::{UciError, UciErrorKind, UciOption, UciOptionType};
+use crate::uci::{UciError, UciErrorKind, UciInfo, UciOption, UciOptionType};
+use pgn_traits::pgn::PgnBoard;
 use std::result;
 use std::str::FromStr;
 
@@ -162,4 +163,57 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
             )))
         }
     })
+}
+
+pub fn parse_info_string<B: PgnBoard>(input: &str) -> Result<UciInfo<B>, UciError> {
+    let mut pv: Vec<&str> = vec![];
+    let mut cp_score = None;
+
+    let mut words_iter = input.split_whitespace().peekable();
+    assert_eq!(words_iter.next(), Some("info"));
+    while let Some(next_token) = words_iter.next() {
+        match next_token {
+            "score" => match words_iter.next() {
+                Some("cp") => {
+                    if let Some(cp_string) = words_iter.next() {
+                        cp_score = Some(i64::from_str(cp_string).map_err(|err| {
+                            UciError::new_caused_by(
+                                UciErrorKind::ParseError,
+                                format!("Failed to parse cp score \"{}\"", cp_string),
+                                Box::new(err),
+                            )
+                        })?);
+                    } else {
+                        return Err(UciError::new_parse_error("No cp score".to_string()));
+                    }
+                }
+                _ => return Err(UciError::new_parse_error("Invalid score".to_string())),
+            },
+            "pv" => {
+                if !pv.is_empty() {
+                    return Err(UciError::new_parse_error(format!("Received multiple PVs")));
+                }
+                while let Some(_) = words_iter.peek() {
+                    pv.push(words_iter.next().unwrap());
+                }
+            }
+            _ => (),
+        }
+    }
+    if let Some(score) = cp_score {
+        Ok(UciInfo {
+            depth: 0,
+            seldepth: 0,
+            time: 0,
+            nodes: 0,
+            hashfull: 0.0,
+            cp_score: score,
+            pv: vec![],
+        })
+    } else {
+        Err(UciError::new_root(
+            UciErrorKind::MissingField,
+            "Info string had no score".to_string(),
+        ))
+    }
 }

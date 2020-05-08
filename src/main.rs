@@ -2,7 +2,7 @@ use std::io::{BufWriter, Result};
 use std::time::Duration;
 
 use crate::cli::CliOptions;
-use crate::engine::{Engine, EngineBuilder};
+use crate::engine::EngineBuilder;
 use board_game_traits::board::Board as BoardTrait;
 use pgn_traits::pgn::PgnBoard;
 use std::fs;
@@ -26,9 +26,12 @@ fn main() -> Result<()> {
 
     for opening in OPENING_MOVE_TEXTS.iter() {
         let mut board = Board::start_board();
-        let move1 = board.move_from_san(opening[0]).unwrap();
-        board.do_move(move1.clone());
-        openings.push(vec![move1, board.move_from_san(opening[1]).unwrap()]);
+        let moves : Vec<Move> = opening.iter().map(|move_string| {
+            let mv = board.move_from_san(move_string).unwrap();
+            board.do_move(mv.clone());
+            mv
+        }).collect();
+        openings.push(moves);
     }
 
     run_match(openings, cli_args)?;

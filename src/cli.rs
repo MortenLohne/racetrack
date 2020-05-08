@@ -1,4 +1,4 @@
-use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg, SubCommand};
 
 pub struct CliOptions {
     pub concurrency: usize,

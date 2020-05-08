@@ -1,10 +1,15 @@
+use log::warn;
+
 use crate::engine::Engine;
 use crate::pgn_writer::Game;
 use crate::r#match::TournamentSettings;
-use board_game_traits::board::{Board as BoardTrait, Color};
+use crate::uci::parser::parse_info_string;
+use crate::uci::UciInfo;
+use board_game_traits::board::Color;
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
 use std::io::Result;
+use taik::board::Board;
 
 pub fn play_game<'a, B: PgnBoard + Clone>(
     settings: &TournamentSettings<B>,
@@ -17,8 +22,11 @@ where
     B::Move: Clone,
 {
     let mut board = B::start_board();
-    let mut moves: Vec<B::Move> = opening.to_vec();
-    for mv in moves.iter() {
+    let mut moves: Vec<(B::Move, String)> = opening
+        .into_iter()
+        .map(|mv| (mv.clone(), String::new()))
+        .collect();
+    for (mv, _comment) in moves.iter() {
         board.do_move(mv.clone());
     }
     white.uci_write_line("utinewgame")?;
@@ -36,7 +44,7 @@ where
         let mut position_string = String::new();
         write!(position_string, "position startpos moves ").unwrap();
         let mut position_board = B::start_board();
-        for mv in moves.iter() {
+        for (mv, _comment) in moves.iter() {
             write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
             position_board.do_move(mv.clone());
         }
@@ -48,23 +56,39 @@ where
             settings.time_per_move.as_millis()
         ))?;
 
+        let mut last_uci_info: Option<UciInfo<Board>> = None;
+
         loop {
             let input = engine_to_move.uci_read_line()?;
+            if input.starts_with("info") {
+                match parse_info_string(&input) {
+                    Ok(uci_info) => last_uci_info = Some(uci_info),
+                    Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
+                }
+            }
             if input.starts_with("bestmove") {
                 let move_string = input.split_whitespace().nth(1).unwrap();
                 let mv = board.move_from_lan(move_string).unwrap();
-                moves.push(mv.clone());
-                board.do_move(mv);
+                board.do_move(mv.clone());
+
+                let score_string = match last_uci_info {
+                    Some(uci_info) => format!(
+                        "{}{:.2}/{}",
+                        if uci_info.cp_score > 0 { "+" } else { "" },
+                        uci_info.cp_score as f64 / 100.0,
+                        uci_info.depth
+                    ),
+                    None => String::new(),
+                };
+                moves.push((mv, score_string));
                 break;
             }
         }
     }
 
-    let moves_with_comments: Vec<_> = moves.into_iter().map(|mv| (mv, String::new())).collect();
-
     let game = Game {
         start_board: B::start_board(),
-        moves: moves_with_comments,
+        moves,
         game_result: board.game_result(),
         tags: vec![
             ("White".to_string(), white.name().to_string()),
