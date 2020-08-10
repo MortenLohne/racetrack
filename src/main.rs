@@ -7,8 +7,9 @@ use board_game_traits::board::Board as BoardTrait;
 use pgn_traits::pgn::PgnBoard;
 use std::fs;
 use std::sync::Mutex;
-use taik::board::{Board, Move, Piece, TunableBoard};
+use taik::board::{Board, Move, Role};
 use taik::mcts;
+use taik::mcts::MctsSetting;
 
 mod cli;
 mod engine;
@@ -26,11 +27,14 @@ fn main() -> Result<()> {
 
     for opening in OPENING_MOVE_TEXTS.iter() {
         let mut board = Board::start_board();
-        let moves : Vec<Move> = opening.iter().map(|move_string| {
-            let mv = board.move_from_san(move_string).unwrap();
-            board.do_move(mv.clone());
-            mv
-        }).collect();
+        let moves: Vec<Move> = opening
+            .iter()
+            .map(|move_string| {
+                let mv = board.move_from_san(move_string).unwrap();
+                board.do_move(mv.clone());
+                mv
+            })
+            .collect();
         openings.push(moves);
     }
 
@@ -80,25 +84,25 @@ fn generate_openings(openings: &[Vec<Move>]) -> Vec<Vec<Move>> {
         let mut tree = mcts::Tree::new_root();
         let mut simple_moves = vec![];
         let mut moves = vec![];
+
+        let settings = MctsSetting::default();
+
         for _ in 0..20_000_000 {
             tree.select(
                 &mut position.clone(),
-                Board::VALUE_PARAMS,
-                Board::POLICY_PARAMS,
+                &settings,
                 &mut simple_moves,
                 &mut moves,
             );
         }
         println!("Analysis for opening {:?}", opening);
-        tree.print_info();
+        tree.print_info(&MctsSetting::default());
 
         let alternative_moves: Vec<_> = tree
             .children
             .iter()
             .map(|(child, mv)| (mv.clone(), child.visits, child.mean_action_value))
-            .filter(|(mv, visits, _)| {
-                *visits > 50_000 && !matches!(mv, Move::Place(Piece::WhiteCap, _))
-            })
+            .filter(|(mv, visits, _)| *visits > 50_000 && !matches!(mv, Move::Place(Role::Cap, _)))
             .collect();
 
         if alternative_moves.len() > 1 {
