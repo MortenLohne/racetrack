@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.5.3"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
+checksum = "cd56b59865bce947ac5958779cfa508f6c3b9497cc762b7e24a12d11ccde2c4f"
 
 [[package]]
 name = "fern"
@@ -327,7 +327,7 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 [[package]]
 name = "taik"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/taik#18ac2d95ffd9bd193ceac9877ebe666227f77eff"
+source = "git+https://github.com/MortenLohne/taik#9d3c6345b1fdabbfcef3e3d6836cbc7bc5dc1ca7"
 dependencies = [
  "arrayvec",
  "board-game-traits",
