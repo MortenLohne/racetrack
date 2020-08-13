@@ -1,7 +1,74 @@
-use taik::board::{Board, Move, Role};
-use taik::mcts;
 use board_game_traits::board::Board as BoardTrait;
+use std::collections::HashSet;
+use taik::board::{Board, Move, Role, Square, BOARD_SIZE};
+use taik::mcts;
 use taik::mcts::MctsSetting;
+use rayon::prelude::*;
+
+type Opening = Vec<Move>;
+
+fn evaluate_opening(opening: Opening) -> (Move, f32) {
+    let mut board = Board::default();
+    for mv in opening {
+        board.do_move(mv);
+    }
+    mcts::mcts(board, 100_000)
+}
+
+pub fn print_opening_evals(openings: Vec<Opening>) {
+    let results: Vec<_> = openings.into_par_iter()
+        .map(|opening| (opening.clone(), evaluate_opening(opening)))
+        .collect();
+    for (opening, (best_move, score)) in results {
+        let opening_move_strings = opening.iter().map(|mv| mv.to_string()).collect::<Vec<_>>();
+        println!("{}; wp {:.3}; bm {}", opening_move_strings.join(" "), score, best_move);
+    }
+}
+
+#[allow(unused)]
+pub fn all_flatstone_n_ply_openings(n: usize) -> Vec<Opening> {
+    if n == 0 {
+        vec![vec![]]
+    } else {
+        let lower_openings = all_flatstone_n_ply_openings(n - 1);
+
+        let mut positions: HashSet<Board> = HashSet::new();
+        let mut openings = Vec::new();
+
+        for lower_opening in lower_openings {
+            let mut board = Board::start_board();
+            for mv in lower_opening.iter() {
+                board.do_move(mv.clone());
+            }
+
+            let mut moves = vec![];
+            board.generate_moves(&mut moves);
+            moves.retain(|mv| matches!(mv, Move::Place(Role::Flat, _)));
+            moves.sort_by(|move1, move2| match (move1, move2) {
+                (Move::Place(_, sq1), Move::Place(_, sq2)) => sq1
+                    .rank()
+                    .cmp(&sq2.rank())
+                    .reverse()
+                    .then(sq1.file().cmp(&sq2.file())),
+                _ => unreachable!(),
+            });
+            for mv in moves {
+                let reverse_move = board.do_move(mv.clone());
+                if rotations_and_symmetries(&board)
+                    .iter()
+                    .all(|symmetry| !positions.contains(&symmetry))
+                {
+                    positions.insert(board.clone());
+                    let mut opening = lower_opening.clone();
+                    opening.push(mv);
+                    openings.push(opening);
+                }
+                board.reverse_move(reverse_move);
+            }
+        }
+        openings
+    }
+}
 
 fn generate_openings(openings: &[Vec<Move>]) -> Vec<Vec<Move>> {
     let mut good_openings: Vec<_> = vec![];
@@ -62,6 +129,56 @@ fn generate_openings(openings: &[Vec<Move>]) -> Vec<Vec<Move>> {
     println!("]");
 
     good_openings
+}
+
+pub fn flip_board_y(board: &Board) -> Board {
+    let mut new_board = board.clone();
+    for x in 0..BOARD_SIZE as u8 {
+        for y in 0..BOARD_SIZE as u8 {
+            new_board[Square(y * BOARD_SIZE as u8 + x)] =
+                board[Square((BOARD_SIZE as u8 - y - 1) * BOARD_SIZE as u8 + x)].clone();
+        }
+    }
+    new_board.update_group_connectedness();
+    new_board
+}
+
+pub fn flip_board_x(board: &Board) -> Board {
+    let mut new_board = board.clone();
+    for x in 0..BOARD_SIZE as u8 {
+        for y in 0..BOARD_SIZE as u8 {
+            new_board[Square(y * BOARD_SIZE as u8 + x)] =
+                board[Square(y * BOARD_SIZE as u8 + (BOARD_SIZE as u8 - x - 1))].clone();
+        }
+    }
+    new_board.update_group_connectedness();
+    new_board
+}
+
+pub fn rotate_board(board: &Board) -> Board {
+    let mut new_board = board.clone();
+    for x in 0..BOARD_SIZE as u8 {
+        for y in 0..BOARD_SIZE as u8 {
+            let new_x = y;
+            let new_y = BOARD_SIZE as u8 - x - 1;
+            new_board[Square(y * BOARD_SIZE as u8 + x)] =
+                board[Square(new_y * BOARD_SIZE as u8 + new_x)].clone();
+        }
+    }
+    new_board.update_group_connectedness();
+    new_board
+}
+
+pub fn rotations_and_symmetries(board: &Board) -> Vec<Board> {
+    vec![
+        flip_board_x(&board),
+        flip_board_y(&board),
+        rotate_board(&board),
+        rotate_board(&rotate_board(&board)),
+        rotate_board(&rotate_board(&rotate_board(&board))),
+        rotate_board(&flip_board_x(&board)),
+        rotate_board(&flip_board_y(&board)),
+    ]
 }
 
 pub(crate) const OPENING_MOVE_TEXTS: [&[&str]; 106] = [
