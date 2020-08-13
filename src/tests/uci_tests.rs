@@ -1,4 +1,3 @@
-use crate::engine;
 use crate::uci::{parser, UciOption, UciOptionType};
 
 #[test]
