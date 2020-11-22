@@ -6,6 +6,7 @@ pub struct CliOptions {
     pub games: Option<u64>,
     pub engine_paths: Vec<String>,
     pub pgnout: Option<String>,
+    pub book_path: Option<String>,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -25,7 +26,9 @@ pub fn parse_cli_arguments() -> CliOptions {
             .help("Number of games to run in parallel")
             .default_value("1")
             .short("c")
-            .long("concurrency"))
+            .long("concurrency")
+            .value_name("1"))
+
         .arg(Arg::with_name("rounds")
             .help("Number of rounds to play.")
             .short("r")
@@ -44,6 +47,12 @@ pub fn parse_cli_arguments() -> CliOptions {
             .help("Output file for all game PGNs.\nIf the file already exists, new games will be appended.")
             .long("pgnout")
             .takes_value(true))
+        .arg(Arg::with_name("book")
+            .help("Start each game from an opening from the file. Each opening is played twice, with different colors.")
+            .short("b")
+            .long("book")
+            .takes_value(true)
+            .value_name("file.txt"))
 
         .subcommand(SubCommand::with_name("head2head")
             .arg(Arg::with_name("")))
@@ -59,5 +68,6 @@ pub fn parse_cli_arguments() -> CliOptions {
             .map(|values| values.map(|s| s.to_string()).collect())
             .unwrap_or(vec![]),
         pgnout: matches.value_of("file").map(|s| s.to_string()),
+        book_path: matches.value_of("book").map(|s| s.to_string()),
     }
 }

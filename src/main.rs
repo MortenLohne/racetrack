@@ -32,7 +32,11 @@ fn main() -> Result<()> {
         let start_time = time::Instant::now();
 
         openings::print_opening_evals(openings.clone());
-        println!("Evaluated {} openings in {:.1}s", openings.len(), start_time.elapsed().as_secs_f64())
+        println!(
+            "Evaluated {} openings in {:.1}s",
+            openings.len(),
+            start_time.elapsed().as_secs_f64()
+        )
     }
 
     let cli_args = cli::parse_cli_arguments();

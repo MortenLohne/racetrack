@@ -1,9 +1,9 @@
 use board_game_traits::board::Board as BoardTrait;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use taik::board::{Board, Move, Role, Square, BOARD_SIZE};
 use taik::mcts;
 use taik::mcts::MctsSetting;
-use rayon::prelude::*;
 
 type Opening = Vec<Move>;
 
@@ -16,12 +16,18 @@ fn evaluate_opening(opening: Opening) -> (Move, f32) {
 }
 
 pub fn print_opening_evals(openings: Vec<Opening>) {
-    let results: Vec<_> = openings.into_par_iter()
+    let results: Vec<_> = openings
+        .into_par_iter()
         .map(|opening| (opening.clone(), evaluate_opening(opening)))
         .collect();
     for (opening, (best_move, score)) in results {
         let opening_move_strings = opening.iter().map(|mv| mv.to_string()).collect::<Vec<_>>();
-        println!("{}; wp {:.3}; bm {}", opening_move_strings.join(" "), score, best_move);
+        println!(
+            "{}; wp {:.3}; bm {}",
+            opening_move_strings.join(" "),
+            score,
+            best_move
+        );
     }
 }
 
