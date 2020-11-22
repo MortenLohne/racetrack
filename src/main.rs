@@ -18,27 +18,8 @@ pub mod pgn_writer;
 #[cfg(test)]
 mod tests;
 pub mod uci;
-use std::time;
 
 fn main() -> Result<()> {
-    for n in 1..=4 {
-        let openings = openings::all_flatstone_n_ply_openings(n);
-        println!(
-            "{} openings: {:?}",
-            openings.len(),
-            openings.iter().take(10).collect::<Vec<_>>()
-        );
-
-        let start_time = time::Instant::now();
-
-        openings::print_opening_evals(openings.clone());
-        println!(
-            "Evaluated {} openings in {:.1}s",
-            openings.len(),
-            start_time.elapsed().as_secs_f64()
-        )
-    }
-
     let cli_args = cli::parse_cli_arguments();
 
     let mut openings = vec![];

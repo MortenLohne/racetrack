@@ -33,7 +33,7 @@ impl<B: PgnBoard + Clone> Game<B> {
                 .iter()
                 .position(|(tag, _value)| tag.eq_ignore_ascii_case(required_tag));
             if let Some(position) = position {
-                let (tag, value) = tags.remove(position);
+                let (_tag, value) = tags.remove(position);
                 // Write the tag with correct capitalization
                 writeln!(f, "[{} \"{}\"]", required_tag, value)?;
             } else {
