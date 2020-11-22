@@ -1,108 +1,33 @@
-pub(crate) const OPENING_MOVE_TEXTS: [&[&str]; 106] = [
-    &["a5", "b5"],
-    &["a5", "c5"],
-    &["a5", "d5"],
-    &["a5", "e5"],
-    &["a5", "b4"],
-    &["a5", "c4"],
-    &["a5", "d4"],
-    &["a5", "e4"],
-    &["a5", "c3", "c4"],
-    &["a5", "c3", "b3"],
-    &["a5", "c3", "d3"],
-    &["a5", "c3", "c2"],
-    &["a5", "d3"],
-    &["a5", "e3"],
-    &["a5", "d2"],
-    &["a5", "e2"],
-    &["a5", "e1"],
-    &["b5", "a5"],
-    &["b5", "c5"],
-    &["b5", "d5", "d4"],
-    &["b5", "d5", "d3"],
-    &["b5", "d5", "d2"],
-    &["b5", "e5"],
-    &["b5", "a4"],
-    &["b5", "b4"],
-    &["b5", "c4"],
-    &["b5", "d4", "b4"],
-    &["b5", "d4", "c4"],
-    &["b5", "d4", "d3"],
-    &["b5", "e4", "b4"],
-    &["b5", "e4", "c4"],
-    &["b5", "a3"],
-    &["b5", "b3"],
-    &["b5", "c3", "c4"],
-    &["b5", "c3", "b3"],
-    &["b5", "c3", "c2"],
-    &["b5", "d3"],
-    &["b5", "e3"],
-    &["b5", "a2"],
-    &["b5", "b2"],
-    &["b5", "c2"],
-    &["b5", "d2", "d3"],
-    &["b5", "d2", "b2"],
-    &["b5", "d2", "c2"],
-    &["b5", "e2", "b2"],
-    &["b5", "e2", "c2"],
-    &["b5", "a1"],
-    &["b5", "b1"],
-    &["b5", "c1"],
-    &["b5", "d1", "d4"],
-    &["b5", "d1", "d3"],
-    &["b5", "d1", "d2"],
-    &["b5", "e1"],
-    &["c5", "a5"],
-    &["c5", "b5"],
-    &["c5", "a4"],
-    &["c5", "b4"],
-    &["c5", "c4"],
-    &["c5", "a3"],
-    &["c5", "b3"],
-    &["c5", "c3", "b3"],
-    &["c5", "c3", "d3"],
-    &["c5", "a2"],
-    &["c5", "b2"],
-    &["c5", "c2"],
-    &["c5", "a1"],
-    &["c5", "b1"],
-    &["c5", "c1"],
-    &["b4", "a5"],
-    &["b4", "b5"],
-    &["b4", "c5"],
-    &["b4", "d5"],
-    &["b4", "e5"],
-    &["b4", "c4"],
-    &["b4", "d4"],
-    &["b4", "e4"],
-    &["b4", "c3", "c4"],
-    &["b4", "c3", "b3"],
-    &["b4", "d3"],
-    &["b4", "e3"],
-    &["b4", "d2"],
-    &["b4", "e2"],
-    &["b4", "e1"],
-    &["c4", "a5"],
-    &["c4", "b5"],
-    &["c4", "c5"],
-    &["c4", "a4"],
-    &["c4", "b4"],
-    &["c4", "a3"],
-    &["c4", "b3"],
-    &["c4", "c3", "b3"],
-    &["c4", "c3", "d3"],
-    &["c4", "c3", "b2"],
-    &["c4", "c3", "c2"],
-    &["c4", "c3", "d2"],
-    &["c4", "a2"],
-    &["c4", "b2"],
-    &["c4", "c2"],
-    &["c4", "a1"],
-    &["c4", "b1"],
-    &["c4", "c1"],
-    &["c3", "a5"],
-    &["c3", "b5"],
-    &["c3", "c5"],
-    &["c3", "b4"],
-    &["c3", "c4"],
-];
+use board_game_traits::board::Board as BoardTrait;
+use pgn_traits::pgn::PgnBoard;
+use std::fs;
+use std::io;
+use std::io::BufRead;
+use taik::board::{Board, Move};
+
+pub fn openings_from_file(path: &str) -> io::Result<Vec<Vec<Move>>> {
+    let reader = io::BufReader::new(fs::File::open(path)?);
+    let mut openings = vec![];
+
+    for line in reader.lines() {
+        let mut board = Board::start_board();
+        let mut moves = vec![];
+        for mv_string in line?.split_whitespace() {
+            let mv = board
+                .move_from_san(&mv_string)
+                .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+            let mut legal_moves = vec![];
+            board.generate_moves(&mut legal_moves);
+            if !legal_moves.contains(&mv) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Illegal move {}", mv_string),
+                ));
+            }
+            board.do_move(mv.clone());
+            moves.push(mv);
+        }
+        openings.push(moves);
+    }
+    Ok(openings)
+}

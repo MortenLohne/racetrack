@@ -3,8 +3,6 @@ use std::time::Duration;
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
-use board_game_traits::board::Board as BoardTrait;
-use pgn_traits::pgn::PgnBoard;
 use std::fs;
 use std::sync::Mutex;
 use taik::board::{Board, Move};
@@ -22,20 +20,10 @@ pub mod uci;
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
 
-    let mut openings = vec![];
-
-    for opening in openings::OPENING_MOVE_TEXTS.iter() {
-        let mut board = Board::start_board();
-        let moves: Vec<Move> = opening
-            .iter()
-            .map(|move_string| {
-                let mv = board.move_from_san(move_string).unwrap();
-                board.do_move(mv.clone());
-                mv
-            })
-            .collect();
-        openings.push(moves);
-    }
+    let openings = match &cli_args.book_path {
+        Some(path) => openings::openings_from_file(path)?,
+        None => vec![vec![]],
+    };
 
     run_match(openings, cli_args)?;
 
