@@ -13,7 +13,7 @@ path = "src/main.rs"
 [dependencies]
 board-game-traits = "0.1"
 pgn-traits = "0.1.0"
-taik = { git = "https://github.com/MortenLohne/taik", features = ["pgn-writer"] }
-rayon = "1.3"
+taik = { git = "https://github.com/MortenLohne/taik" }
+rayon = "1.5"
 clap = "2.33"
 log = "0.4"
