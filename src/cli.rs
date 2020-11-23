@@ -1,9 +1,9 @@
 use clap::{App, Arg, SubCommand};
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliOptions {
     pub concurrency: usize,
-    pub rounds: Option<u64>,
-    pub games: Option<u64>,
+    pub games: u64,
     pub engine_paths: Vec<String>,
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
@@ -28,21 +28,12 @@ pub fn parse_cli_arguments() -> CliOptions {
             .short("c")
             .long("concurrency")
             .value_name("1"))
-
-        .arg(Arg::with_name("rounds")
-            .help("Number of rounds to play.")
-            .short("r")
-            .long("rounds")
-            .required(true)
-            .takes_value(true)
-            .conflicts_with("games"))
         .arg(Arg::with_name("games")
             .help("Number of games to play.")
             .short("g")
             .long("games")
             .required(true)
-            .takes_value(true)
-            .conflicts_with("rounds"))
+            .takes_value(true))
         .arg(Arg::with_name("file")
             .help("Output file for all game PGNs.\nIf the file already exists, new games will be appended.")
             .long("pgnout")
@@ -61,8 +52,7 @@ pub fn parse_cli_arguments() -> CliOptions {
 
     CliOptions {
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
-        rounds: matches.value_of("rounds").map(|r| r.parse().unwrap()),
-        games: matches.value_of("games").map(|r| r.parse().unwrap()),
+        games: matches.value_of("games").unwrap().parse().unwrap(),
         engine_paths: matches
             .values_of("engine-path")
             .map(|values| values.map(|s| s.to_string()).collect())

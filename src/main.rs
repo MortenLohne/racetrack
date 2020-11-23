@@ -41,8 +41,8 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
         concurrency: cli_args.concurrency,
         time_per_move: Duration::from_millis(1000),
         openings,
-        num_minimatches: 106,
-        pgn_writer: cli_args.pgnout.map(|pgnout| {
+        num_minimatches: (cli_args.games + 1) / 2,
+        pgn_writer: cli_args.pgnout.as_ref().map(|pgnout| {
             Mutex::new(r#match::PgnWriter::new(BufWriter::new(
                 fs::OpenOptions::new()
                     .create(true)
@@ -52,6 +52,10 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
             )))
         }),
     };
+
+    println!("CLI args: {:?}", cli_args);
+    println!("Settings: {:?}", settings);
+
     let games = r#match::play_match(
         &settings,
         engine_builders[0].clone(),

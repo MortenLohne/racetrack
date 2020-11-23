@@ -6,9 +6,10 @@ use board_game_traits::board::GameResult::*;
 use pgn_traits::pgn::PgnBoard;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
-use std::io;
+use std::fmt::Formatter;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::{fmt, io};
 
 pub fn play_match<B>(
     settings: &TournamentSettings<B>,
@@ -36,7 +37,7 @@ where
     let games: Vec<_> = (0..settings.num_minimatches)
         .into_par_iter()
         .map(|round| {
-            let thread_index = rayon::current_thread_index().unwrap();
+            let thread_index = rayon::current_thread_index().unwrap_or(0);
 
             let mut white = engines[thread_index].0.try_lock().unwrap();
             let mut black = engines[thread_index].1.try_lock().unwrap();
@@ -131,6 +132,15 @@ pub struct TournamentSettings<B: PgnBoard> {
     pub num_minimatches: u64,
     pub openings: Vec<Vec<B::Move>>,
     pub pgn_writer: Option<Mutex<PgnWriter<B>>>,
+}
+
+impl<B: PgnBoard> fmt::Debug for TournamentSettings<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Concurrency: {}", self.concurrency)?;
+        writeln!(f, "Time per move: {:.1}s", self.time_per_move.as_secs_f32())?;
+        writeln!(f, "num_minimatches: {}", self.num_minimatches)?;
+        Ok(())
+    }
 }
 
 /// A wrapper around a `Write` instance, to ensure that PGNs are written in order
