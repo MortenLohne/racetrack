@@ -196,14 +196,6 @@ impl<B: PgnBoard + Clone> PgnWriter<B> {
             self.next_game_number += 1;
         }
         self.pgn_out.flush()?;
-        println!(
-            "Next game: {}, pending: {:?}",
-            self.next_game_number,
-            self.pending_games
-                .iter()
-                .map(|(a, _b)| a)
-                .collect::<Vec<_>>()
-        );
         Ok(())
     }
 }
