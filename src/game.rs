@@ -29,8 +29,14 @@ where
     for (mv, _comment) in moves.iter() {
         board.do_move(mv.clone());
     }
-    white.uci_write_line("utinewgame")?;
-    black.uci_write_line("utinewgame")?;
+    white.uci_write_line("teinewgame 5")?;
+    white.uci_write_line("isready")?;
+    black.uci_write_line("teinewgame 5")?;
+    black.uci_write_line("isready")?;
+
+    while white.uci_read_line()?.trim() != "readyok" {}
+    while black.uci_read_line()?.trim() != "readyok" {}
+
     for _ in 0..200 {
         // TODO: Choose max game length
         if board.game_result().is_some() {

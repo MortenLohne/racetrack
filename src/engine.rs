@@ -35,13 +35,13 @@ impl<'a> EngineBuilder<'a> {
             name: self.path.to_string(),
         };
 
-        engine.uci_write_line("uti")?;
+        engine.uci_write_line("tei")?;
 
         let mut options = vec![];
         loop {
             let input = engine.uci_read_line()?;
             match input.split_whitespace().next() {
-                Some("utiok") => {
+                Some("teiok") => {
                     break;
                 }
                 Some("option") => {

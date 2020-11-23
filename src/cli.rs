@@ -44,6 +44,10 @@ pub fn parse_cli_arguments() -> CliOptions {
             .long("book")
             .takes_value(true)
             .value_name("file.txt"))
+        .arg(Arg::with_name("tc")
+            .help("Time control for the games.")
+            .long("tc")
+            .takes_value(true))
 
         .subcommand(SubCommand::with_name("head2head")
             .arg(Arg::with_name("")))
