@@ -1,4 +1,4 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliOptions {
@@ -48,10 +48,6 @@ pub fn parse_cli_arguments() -> CliOptions {
             .help("Time control for the games.")
             .long("tc")
             .takes_value(true))
-
-        .subcommand(SubCommand::with_name("head2head")
-            .arg(Arg::with_name("")))
-        .subcommand(SubCommand::with_name("roundrobin"))
         .get_matches();
 
     CliOptions {
