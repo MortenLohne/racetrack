@@ -1,5 +1,4 @@
 use std::io::{BufWriter, Result};
-use std::time::Duration;
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
@@ -39,7 +38,8 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
 
     let settings: r#match::TournamentSettings<Board> = r#match::TournamentSettings {
         concurrency: cli_args.concurrency,
-        time_per_move: Duration::from_millis(1000),
+        time: cli_args.time,
+        increment: cli_args.increment,
         openings,
         num_minimatches: (cli_args.games + 1) / 2,
         pgn_writer: cli_args.pgnout.as_ref().map(|pgnout| {

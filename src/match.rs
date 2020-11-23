@@ -150,7 +150,8 @@ pub fn print_score<B: PgnBoard>(
 
 pub struct TournamentSettings<B: PgnBoard> {
     pub concurrency: usize,
-    pub time_per_move: Duration,
+    pub time: Duration,
+    pub increment: Duration,
     pub num_minimatches: u64,
     pub openings: Vec<Vec<B::Move>>,
     pub pgn_writer: Option<Mutex<PgnWriter<B>>>,
@@ -159,7 +160,7 @@ pub struct TournamentSettings<B: PgnBoard> {
 impl<B: PgnBoard> fmt::Debug for TournamentSettings<B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Concurrency: {}", self.concurrency)?;
-        writeln!(f, "Time per move: {:.1}s", self.time_per_move.as_secs_f32())?;
+        writeln!(f, "Total time: {:.1}s", self.time.as_secs_f32())?;
         writeln!(f, "num_minimatches: {}", self.num_minimatches)?;
         Ok(())
     }

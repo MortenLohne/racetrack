@@ -5,10 +5,11 @@ use crate::pgn_writer::Game;
 use crate::r#match::TournamentSettings;
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
-use board_game_traits::board::Color;
+use board_game_traits::board::{Color, GameResult};
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
 use std::io::Result;
+use std::time::Instant;
 use taik::board::Board;
 
 pub fn play_game<'a, B: PgnBoard + Clone>(
@@ -37,10 +38,21 @@ where
     while white.uci_read_line()?.trim() != "readyok" {}
     while black.uci_read_line()?.trim() != "readyok" {}
 
-    for _ in 0..200 {
+    let mut white_time = settings.time;
+    let mut black_time = settings.time;
+
+    let (result, result_description) = loop {
         // TODO: Choose max game length
-        if board.game_result().is_some() {
-            break;
+        if moves.len() > 200 {
+            break (
+                None,
+                format!("Game terminated after reaching {} moves.", moves.len()),
+            );
+        }
+
+        let result = board.game_result();
+        if result.is_some() {
+            break (result, String::new());
         }
         let engine_to_move = match board.side_to_move() {
             Color::White => &mut white,
@@ -58,9 +70,12 @@ where
         engine_to_move.uci_write_line(&position_string)?;
 
         engine_to_move.uci_write_line(&format!(
-            "go movetime {}",
-            settings.time_per_move.as_millis()
+            "go wtime {} btime {}",
+            white_time.as_millis(),
+            black_time.as_millis()
         ))?;
+
+        let start_time_for_move = Instant::now();
 
         let mut last_uci_info: Option<UciInfo<Board>> = None;
 
@@ -79,10 +94,11 @@ where
 
                 let score_string = match last_uci_info {
                     Some(uci_info) => format!(
-                        "{}{:.2}/{}",
+                        "{}{:.2}/{} {:.2}s",
                         if uci_info.cp_score > 0 { "+" } else { "" },
                         uci_info.cp_score as f64 / 100.0,
-                        uci_info.depth
+                        uci_info.depth,
+                        start_time_for_move.elapsed().as_secs_f32(),
                     ),
                     None => String::new(),
                 };
@@ -90,17 +106,39 @@ where
                 break;
             }
         }
+        let time_taken = start_time_for_move.elapsed();
+        match !board.side_to_move() {
+            Color::White => {
+                if time_taken <= white_time {
+                    white_time -= time_taken;
+                } else {
+                    break (Some(GameResult::BlackWin), "Black wins on time".to_string());
+                }
+            }
+            Color::Black => {
+                if time_taken <= black_time {
+                    black_time -= time_taken;
+                } else {
+                    break (Some(GameResult::WhiteWin), "White wins on time".to_string());
+                }
+            }
+        }
+    };
+
+    let mut tags = vec![
+        ("White".to_string(), white.name().to_string()),
+        ("Black".to_string(), black.name().to_string()),
+        ("Round".to_string(), round.to_string()),
+    ];
+    if !result_description.is_empty() {
+        tags.push(("Termination".to_string(), result_description));
     }
 
     let game = Game {
         start_board: B::start_board(),
         moves,
-        game_result: board.game_result(),
-        tags: vec![
-            ("White".to_string(), white.name().to_string()),
-            ("Black".to_string(), black.name().to_string()),
-            ("Round".to_string(), round.to_string()),
-        ],
+        game_result: result,
+        tags,
     };
     Ok(game)
 }
