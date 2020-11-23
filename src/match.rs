@@ -1,4 +1,4 @@
-use crate::engine::EngineBuilder;
+use crate::engine::{Engine, EngineBuilder};
 use crate::game::play_game;
 use crate::pgn_writer::Game;
 use board_game_traits::board::Board;
@@ -98,11 +98,23 @@ where
         .flatten()
         .collect();
 
+    print_score(&games, &engines);
+
+    Ok(games)
+}
+
+pub fn print_score<B: PgnBoard>(
+    games: &[Game<B>],
+    engines: &[(Arc<Mutex<Engine>>, Arc<Mutex<Engine>>)],
+) {
     println!("Played {} games.", games.len());
 
     let mut engine1_wins = 0;
     let mut draws = 0;
     let mut engine2_wins = 0;
+
+    let mut white_wins = 0;
+    let mut black_wins = 0;
 
     let engine1_name = &engines[0].0.lock().unwrap().name().to_string();
     let engine2_name = &engines[0].1.lock().unwrap().name().to_string();
@@ -110,20 +122,30 @@ where
     for game in games.iter() {
         let (_, white_name) = game.tags.iter().find(|(tag, _val)| tag == "White").unwrap();
         match (white_name == engine1_name, game.game_result) {
-            (true, Some(WhiteWin)) => engine1_wins += 1,
-            (true, Some(BlackWin)) => engine2_wins += 1,
-            (false, Some(WhiteWin)) => engine2_wins += 1,
-            (false, Some(BlackWin)) => engine1_wins += 1,
+            (true, Some(WhiteWin)) => {
+                engine1_wins += 1;
+                white_wins += 1;
+            }
+            (true, Some(BlackWin)) => {
+                engine2_wins += 1;
+                black_wins += 1;
+            }
+            (false, Some(WhiteWin)) => {
+                engine2_wins += 1;
+                white_wins += 1;
+            }
+            (false, Some(BlackWin)) => {
+                engine1_wins += 1;
+                black_wins += 1;
+            }
             (_, None) | (_, Some(Draw)) => draws += 1,
         }
     }
 
     println!(
-        "{} vs {}: +{}-{}={}",
-        engine1_name, engine2_name, engine1_wins, engine2_wins, draws
+        "{} vs {}: +{}-{}={}. {} white wins, {} black wins.",
+        engine1_name, engine2_name, engine1_wins, engine2_wins, draws, white_wins, black_wins
     );
-
-    Ok(games)
 }
 
 pub struct TournamentSettings<B: PgnBoard> {
