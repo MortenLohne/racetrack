@@ -50,7 +50,8 @@ pub fn parse_cli_arguments() -> CliOptions {
         .arg(Arg::with_name("tc")
             .help("Time control for each game, in seconds. Increment is currently not supported.")
             .long("tc")
-            .takes_value(true))
+            .takes_value(true)
+            .required(true))
         .get_matches();
 
     CliOptions {
