@@ -56,7 +56,7 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
     println!("CLI args: {:?}", cli_args);
     println!("Settings: {:?}", settings);
 
-    let games = r#match::play_match(
+    let _ = r#match::play_match(
         &settings,
         engine_builders[0].clone(),
         engine_builders[1].clone(),

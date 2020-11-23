@@ -56,7 +56,7 @@ pub fn parse_cli_arguments() -> CliOptions {
         engine_paths: matches
             .values_of("engine-path")
             .map(|values| values.map(|s| s.to_string()).collect())
-            .unwrap_or(vec![]),
+            .unwrap_or_default(),
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
     }

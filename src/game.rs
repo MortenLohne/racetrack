@@ -23,7 +23,7 @@ where
 {
     let mut board = B::start_board();
     let mut moves: Vec<(B::Move, String)> = opening
-        .into_iter()
+        .iter()
         .map(|mv| (mv.clone(), String::new()))
         .collect();
     for (mv, _comment) in moves.iter() {

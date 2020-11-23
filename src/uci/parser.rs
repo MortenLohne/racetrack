@@ -191,9 +191,11 @@ pub fn parse_info_string<B: PgnBoard>(input: &str) -> Result<UciInfo<B>, UciErro
             },
             "pv" => {
                 if !pv.is_empty() {
-                    return Err(UciError::new_parse_error(format!("Received multiple PVs")));
+                    return Err(UciError::new_parse_error(
+                        "Received multiple PVs".to_string(),
+                    ));
                 }
-                while let Some(_) = words_iter.peek() {
+                while words_iter.peek().is_some() {
                     pv.push(words_iter.next().unwrap());
                 }
             }

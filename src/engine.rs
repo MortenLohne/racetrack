@@ -29,7 +29,7 @@ impl<'a> EngineBuilder<'a> {
         let stdin = child.stdin.take().unwrap();
 
         let mut engine = Engine {
-            child,
+            _child: child,
             stdout,
             stdin,
             name: self.path.to_string(),
@@ -66,7 +66,7 @@ impl<'a> EngineBuilder<'a> {
 }
 
 pub struct Engine {
-    child: Child,
+    _child: Child,
     stdout: BufReader<ChildStdout>,
     stdin: ChildStdin,
     name: String,
