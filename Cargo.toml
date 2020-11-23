@@ -1,8 +1,12 @@
 [package]
-name = "tak-match"
-version = "0.1.0"
+name = "racetrack"
+version = "0.2.0"
 authors = ["Morten Lohne <lohnemorten@gmail.com>"]
 edition = "2018"
+
+[[bin]]
+name = "racetrack"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
