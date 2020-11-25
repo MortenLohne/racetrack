@@ -129,6 +129,7 @@ where
         ("White".to_string(), white.name().to_string()),
         ("Black".to_string(), black.name().to_string()),
         ("Round".to_string(), round.to_string()),
+        ("Size".to_string(), "5".to_string()),
     ];
     if !result_description.is_empty() {
         tags.push(("Termination".to_string(), result_description));
