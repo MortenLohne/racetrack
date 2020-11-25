@@ -61,6 +61,11 @@ impl<B: PgnBoard + Clone> Game<B> {
             writeln!(f, "[FEN \"{}\"", self.start_board.to_fen())?;
         }
 
+        // Write any remaining tags
+        for (tag, value) in tags.iter() {
+            writeln!(f, "[{} \"{}\"]", tag, value)?;
+        }
+
         let mut board = self.start_board.clone();
 
         for (i, (mv, comment)) in self.moves.iter().enumerate() {
