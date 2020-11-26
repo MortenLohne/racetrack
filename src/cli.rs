@@ -1,3 +1,4 @@
+use crate::uci::parser;
 use clap::{App, Arg};
 use std::time::Duration;
 
@@ -48,19 +49,20 @@ pub fn parse_cli_arguments() -> CliOptions {
             .takes_value(true)
             .value_name("file.txt"))
         .arg(Arg::with_name("tc")
-            .help("Time control for each game, in seconds. Increment is currently not supported.")
+            .help("Time control for each game, in seconds. Format is time+increment, where the increment is optional.")
             .long("tc")
             .takes_value(true)
             .required(true))
         .get_matches();
 
+    let (time, increment) =
+        parser::parse_tc(matches.value_of("tc").unwrap()).unwrap_or_else(|err| panic!("{}", err));
+
     CliOptions {
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
         games: matches.value_of("games").unwrap().parse().unwrap(),
-        time: Duration::from_millis(
-            (1000.0 * matches.value_of("tc").unwrap().parse::<f64>().unwrap()) as u64,
-        ),
-        increment: Duration::default(),
+        time,
+        increment,
         engine_paths: matches
             .values_of("engine-path")
             .map(|values| values.map(|s| s.to_string()).collect())

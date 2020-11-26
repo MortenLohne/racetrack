@@ -142,6 +142,7 @@ where
             Color::White => {
                 if time_taken <= white_time {
                     white_time -= time_taken;
+                    white_time += settings.increment;
                 } else {
                     break (Some(GameResult::BlackWin), "Black wins on time".to_string());
                 }
@@ -149,6 +150,7 @@ where
             Color::Black => {
                 if time_taken <= black_time {
                     black_time -= time_taken;
+                    black_time += settings.increment;
                 } else {
                     break (Some(GameResult::WhiteWin), "White wins on time".to_string());
                 }

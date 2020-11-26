@@ -1,4 +1,5 @@
 use crate::uci::{parser, UciOption, UciOptionType};
+use std::time::Duration;
 
 #[test]
 fn parse_check_option_description() {
@@ -61,4 +62,16 @@ fn parse_option_description_without_name() {
     let option_string = "option Threads type spin min 1 max 256 default 1";
 
     assert!(parser::parse_option(option_string).is_err())
+}
+
+#[test]
+fn parse_tc_test() {
+    assert_eq!(
+        parser::parse_tc("60+0.6").unwrap(),
+        (Duration::from_secs(60), Duration::from_millis(600))
+    );
+    assert_eq!(
+        parser::parse_tc("0.5+0.1").unwrap(),
+        (Duration::from_millis(500), Duration::from_millis(100))
+    );
 }

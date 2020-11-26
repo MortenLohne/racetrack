@@ -2,6 +2,7 @@ use crate::uci::{UciError, UciErrorKind, UciInfo, UciOption, UciOptionType};
 use pgn_traits::pgn::PgnBoard;
 use std::result;
 use std::str::FromStr;
+use std::time::Duration;
 
 pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     let mut words_iter = input.split_whitespace();
@@ -218,4 +219,20 @@ pub fn parse_info_string<B: PgnBoard>(input: &str) -> Result<UciInfo<B>, UciErro
             "Info string had no score".to_string(),
         ))
     }
+}
+
+pub fn parse_tc(input: &str) -> Result<(Duration, Duration), UciError> {
+    let error = || UciError::new_parse_error(format!("Couldn't parse tc \"{}\"", input));
+    let mut parts = input.split('+');
+    let time_part = parts.next().ok_or_else(error)?;
+    let inc_part = parts.next();
+    let time =
+        Duration::from_millis((f64::from_str(time_part).map_err(|_| error())? * 1000.0) as u64);
+
+    let inc = if let Some(inc_part) = inc_part {
+        Duration::from_millis((f64::from_str(inc_part).map_err(|_| error())? * 1000.0) as u64)
+    } else {
+        Duration::default()
+    };
+    Ok((time, inc))
 }
