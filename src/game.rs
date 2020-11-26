@@ -41,7 +41,7 @@ where
     let mut white_time = settings.time;
     let mut black_time = settings.time;
 
-    let (result, result_description) = loop {
+    let (result, result_description) = 'gameloop: loop {
         // TODO: Choose max game length
         if moves.len() > 200 {
             break (
@@ -102,6 +102,25 @@ where
             if input.starts_with("bestmove") {
                 let move_string = input.split_whitespace().nth(1).unwrap();
                 let mv = board.move_from_lan(move_string).unwrap();
+                let mut legal_moves = vec![];
+                board.generate_moves(&mut legal_moves);
+                // Check that the move is legal
+                if !legal_moves.contains(&mv) {
+                    match board.side_to_move() {
+                        Color::White => {
+                            break 'gameloop (
+                                Some(GameResult::BlackWin),
+                                "White made an illegal move".to_string(),
+                            )
+                        }
+                        Color::Black => {
+                            break 'gameloop (
+                                Some(GameResult::WhiteWin),
+                                "Black made an illegal move".to_string(),
+                            )
+                        }
+                    }
+                }
                 board.do_move(mv.clone());
 
                 let score_string = match last_uci_info {
