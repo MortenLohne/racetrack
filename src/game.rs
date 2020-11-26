@@ -69,11 +69,23 @@ where
 
         engine_to_move.uci_write_line(&position_string)?;
 
+        /*
         engine_to_move.uci_write_line(&format!(
             "go wtime {} btime {}",
             white_time.as_millis(),
             black_time.as_millis()
         ))?;
+        */
+        match board.side_to_move() {
+            Color::White => {
+                engine_to_move
+                    .uci_write_line(&format!("go movetime {}", white_time.as_millis() / 10))?;
+            }
+            Color::Black => {
+                engine_to_move
+                    .uci_write_line(&format!("go movetime {}", black_time.as_millis() / 10))?;
+            }
+        }
 
         let start_time_for_move = Instant::now();
 

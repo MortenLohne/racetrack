@@ -21,6 +21,7 @@ impl<'a> EngineBuilder<'a> {
         // TODO: More helpful error message if engine binary is not found.
         // For example, print contents of directory searched?
         let mut child = Command::new(&absolute_path)
+            .arg("tei")
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .spawn()?;
