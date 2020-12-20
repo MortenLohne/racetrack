@@ -1,6 +1,6 @@
 # Racetrack
 
-Racetrack is a cli to play matches between Tak engines, to see how they play and measure their relative strength.
+Racetrack is a cli to play a match between two Tak engines, to see how they play and measure their relative strength.
 
 Racetrack uses the text-based TEI (Tak Engine Interface) to communicate with the engine binaries, very similar to [UCI](https://en.wikipedia.org/wiki/Universal_Chess_Interface) for Chess. The engines communicate with Racetrack by simply sending string commands through stdin/stdout, see the TEI section for more.
 

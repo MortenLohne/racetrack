@@ -8,8 +8,8 @@ pub struct CliOptions {
     pub games: u64,
     pub time: Duration,
     pub increment: Duration,
-    pub engine_paths: Vec<String>,
-    pub engine_args: Vec<Option<String>>,
+    pub engine_paths: [String; 2],
+    pub engine_args: [Option<String>; 2],
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
 }
@@ -20,12 +20,13 @@ pub fn parse_cli_arguments() -> CliOptions {
         .author("Morten Lohne")
         .about("Play a match between two or more Tak engines")
         .arg(Arg::with_name("engine-path")
-            .help("Specify the file path of an engine. Can be used several times to add more engines.")
+            .help("Specify the file path of an engine. Must be used twice to add both engines.")
             .short("e")
             .long("engine")
             .multiple(true)
             .takes_value(true)
             .min_values(2)
+            .max_values(2)
         )
         .arg(Arg::with_name("concurrency")
             .help("Number of games to run in parallel.")
@@ -71,16 +72,21 @@ pub fn parse_cli_arguments() -> CliOptions {
     let (time, increment) =
         parser::parse_tc(matches.value_of("tc").unwrap()).unwrap_or_else(|err| panic!("{}", err));
 
+    let engine_path_matches = matches
+        .values_of("engine-path")
+        .unwrap()
+        .collect::<Vec<_>>();
+
     CliOptions {
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
         games: matches.value_of("games").unwrap().parse().unwrap(),
         time,
         increment,
-        engine_paths: matches
-            .values_of("engine-path")
-            .map(|values| values.map(|s| s.to_string()).collect())
-            .unwrap_or_default(),
-        engine_args: vec![
+        engine_paths: [
+            engine_path_matches[0].to_string(),
+            engine_path_matches[1].to_string(),
+        ],
+        engine_args: [
             matches.value_of("engine1-args").map(ToOwned::to_owned),
             matches.value_of("engine2-args").map(ToOwned::to_owned),
         ],
