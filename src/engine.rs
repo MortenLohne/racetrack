@@ -9,6 +9,7 @@ use std::string::ToString;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EngineBuilder<'a> {
     pub path: &'a str,
+    pub args: &'a Option<String>,
 }
 
 impl<'a> EngineBuilder<'a> {
@@ -16,15 +17,21 @@ impl<'a> EngineBuilder<'a> {
     pub fn init(&self) -> Result<Engine> {
         // TODO: Error for not permission to current directory
         let mut absolute_path = env::current_dir()?;
-
         absolute_path.push(self.path);
+
         // TODO: More helpful error message if engine binary is not found.
         // For example, print contents of directory searched?
-        let mut child = Command::new(&absolute_path)
-            .arg("tei")
-            .stdout(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()?;
+        let mut child = match self.args {
+            Some(args) => Command::new(&absolute_path)
+                .args(args.split_whitespace())
+                .stdout(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()?,
+            None => Command::new(&absolute_path)
+                .stdout(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()?,
+        };
 
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let stdin = child.stdin.take().unwrap();

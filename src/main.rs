@@ -33,7 +33,8 @@ fn run_match(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
     let engine_builders: Vec<EngineBuilder> = cli_args
         .engine_paths
         .iter()
-        .map(|path| EngineBuilder { path })
+        .zip(cli_args.engine_args.iter())
+        .map(|(path, args)| EngineBuilder { path, args })
         .collect();
 
     let settings: r#match::TournamentSettings<Board> = r#match::TournamentSettings {

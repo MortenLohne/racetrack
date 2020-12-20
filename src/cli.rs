@@ -9,6 +9,7 @@ pub struct CliOptions {
     pub time: Duration,
     pub increment: Duration,
     pub engine_paths: Vec<String>,
+    pub engine_args: Vec<Option<String>>,
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
 }
@@ -53,6 +54,18 @@ pub fn parse_cli_arguments() -> CliOptions {
             .long("tc")
             .takes_value(true)
             .required(true))
+        .arg(Arg::with_name("engine1-args")
+            .help("Command-line argument string to pass to engine 1")
+            .long("engine1-args")
+            .takes_value(true)
+            .value_name("args")
+        )
+        .arg(Arg::with_name("engine2-args")
+            .help("Command-line argument string to pass to engine 2")
+            .long("engine2-args")
+            .takes_value(true)
+            .value_name("args")
+        )
         .get_matches();
 
     let (time, increment) =
@@ -67,6 +80,10 @@ pub fn parse_cli_arguments() -> CliOptions {
             .values_of("engine-path")
             .map(|values| values.map(|s| s.to_string()).collect())
             .unwrap_or_default(),
+        engine_args: vec![
+            matches.value_of("engine1-args").map(ToOwned::to_owned),
+            matches.value_of("engine2-args").map(ToOwned::to_owned),
+        ],
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
     }
