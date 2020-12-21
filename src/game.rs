@@ -6,6 +6,7 @@ use crate::r#match::TournamentSettings;
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
 use board_game_traits::board::{Color, GameResult};
+use chrono::{Datelike, Local};
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
 use std::io::Result;
@@ -148,11 +149,17 @@ where
         }
     };
 
+    let date = Local::today();
+
     let mut tags = vec![
-        ("White".to_string(), white.name().to_string()),
-        ("Black".to_string(), black.name().to_string()),
+        ("Player1".to_string(), white.name().to_string()),
+        ("Player2".to_string(), black.name().to_string()),
         ("Round".to_string(), round.to_string()),
         ("Size".to_string(), "5".to_string()),
+        (
+            "Date".to_string(),
+            format!("{}.{:0>2}.{:0>2}", date.year(), date.month(), date.day()),
+        ),
     ];
     if !result_description.is_empty() {
         tags.push(("Termination".to_string(), result_description));

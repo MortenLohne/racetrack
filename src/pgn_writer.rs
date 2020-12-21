@@ -21,8 +21,8 @@ impl<B: PgnBoard + Clone> Game<B> {
             ("Site", "?"),
             ("Date", "????.??.??"),
             ("Round", "?"),
-            ("White", "?"),
-            ("Black", "?"),
+            ("Player1", "?"),
+            ("Player2", "?"),
         ];
 
         // We must ensure that all required tags are included, and written in the correct order
