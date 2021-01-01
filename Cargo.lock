@@ -160,11 +160,11 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc587bc0ec293155d5bfa6b9891ec18a1e330c234f896ea47fbada4cadbe47e6"
+checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
 ]
@@ -255,9 +255,9 @@ dependencies = [
 
 [[package]]
 name = "pgn-traits"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2627241c2a76d1295a910b1d52f00ac471e047667164be587f3376bbb819b1de"
+checksum = "67750adf1a67d449ce98b33080ee70851ed18baa6a05abf007bf2e34d8b2967b"
 dependencies = [
  "board-game-traits",
 ]
@@ -362,7 +362,7 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 [[package]]
 name = "taik"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/taik#93bd76f458f045ea9fb8c499c7ab393fe9b51544"
+source = "git+https://github.com/MortenLohne/taik#ed37edf106a1434cc1ea249a9b5641fa689bd1b2"
 dependencies = [
  "arrayvec",
  "board-game-traits",
