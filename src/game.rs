@@ -80,7 +80,7 @@ where
 
         let start_time_for_move = Instant::now();
 
-        let mut last_uci_info: Option<UciInfo<Board>> = None;
+        let mut last_uci_info: Option<UciInfo<Board<5>>> = None;
 
         loop {
             let input = engine_to_move.uci_read_line()?;
