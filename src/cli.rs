@@ -4,6 +4,7 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliOptions {
+    pub size: usize,
     pub concurrency: usize,
     pub games: u64,
     pub time: Duration,
@@ -19,6 +20,15 @@ pub fn parse_cli_arguments() -> CliOptions {
         .version("0.0.1")
         .author("Morten Lohne")
         .about("Play a match between two or more Tak engines")
+        .arg(
+            Arg::with_name("size")
+                .short("s")
+                .long("size")
+                .help("Board size")
+                .takes_value(true)
+                .default_value("5")
+                .possible_values(&["4", "5", "6", "7", "8"]),
+        )
         .arg(Arg::with_name("engine-path")
             .help("Specify the file path of an engine. Must be used twice to add both engines.")
             .short("e")
@@ -78,6 +88,7 @@ pub fn parse_cli_arguments() -> CliOptions {
         .collect::<Vec<_>>();
 
     CliOptions {
+        size: matches.value_of("size").unwrap().parse().unwrap(),
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
         games: matches.value_of("games").unwrap().parse().unwrap(),
         time,

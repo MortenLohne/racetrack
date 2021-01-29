@@ -11,7 +11,6 @@ use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
 use std::io::Result;
 use std::time::Instant;
-use taik::board::Board;
 
 pub fn play_game<'a, B: PgnBoard + Clone>(
     settings: &TournamentSettings<B>,
@@ -31,9 +30,9 @@ where
     for (mv, _comment) in moves.iter() {
         board.do_move(mv.clone());
     }
-    white.uci_write_line("teinewgame 5")?;
+    white.uci_write_line(&format!("teinewgame {}", settings.size))?;
     white.uci_write_line("isready")?;
-    black.uci_write_line("teinewgame 5")?;
+    black.uci_write_line(&format!("teinewgame {}", settings.size))?;
     black.uci_write_line("isready")?;
 
     while white.uci_read_line()?.trim() != "readyok" {}
@@ -80,7 +79,7 @@ where
 
         let start_time_for_move = Instant::now();
 
-        let mut last_uci_info: Option<UciInfo<Board<5>>> = None;
+        let mut last_uci_info: Option<UciInfo<B>> = None;
 
         loop {
             let input = engine_to_move.uci_read_line()?;
@@ -155,7 +154,7 @@ where
         ("Player1".to_string(), white.name().to_string()),
         ("Player2".to_string(), black.name().to_string()),
         ("Round".to_string(), round.to_string()),
-        ("Size".to_string(), "5".to_string()),
+        ("Size".to_string(), settings.size.to_string()),
         (
             "Date".to_string(),
             format!("{}.{:0>2}.{:0>2}", date.year(), date.month(), date.day()),

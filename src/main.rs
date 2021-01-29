@@ -20,11 +20,22 @@ fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
 
     let openings = match &cli_args.book_path {
-        Some(path) => openings::openings_from_file::<5>(path)?,
+        Some(path) => match cli_args.size {
+            4 => openings::openings_from_file::<4>(path),
+            5 => openings::openings_from_file::<5>(path),
+            6 => openings::openings_from_file::<6>(path),
+            7 => openings::openings_from_file::<7>(path),
+            8 => openings::openings_from_file::<8>(path),
+            s => panic!("Size {} not supported", s),
+        }?,
         None => vec![vec![]],
     };
-    match 5 {
+    match cli_args.size {
+        4 => run_match::<4>(openings, cli_args)?,
         5 => run_match::<5>(openings, cli_args)?,
+        6 => run_match::<6>(openings, cli_args)?,
+        7 => run_match::<7>(openings, cli_args)?,
+        8 => run_match::<8>(openings, cli_args)?,
         s => panic!("Size {} not supported", s),
     }
 
@@ -40,6 +51,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
         .collect();
 
     let settings: r#match::TournamentSettings<Board<S>> = r#match::TournamentSettings {
+        size: cli_args.size,
         concurrency: cli_args.concurrency,
         time: cli_args.time,
         increment: cli_args.increment,

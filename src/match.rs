@@ -149,6 +149,7 @@ pub fn print_score<B: PgnBoard>(
 }
 
 pub struct TournamentSettings<B: PgnBoard> {
+    pub size: usize,
     pub concurrency: usize,
     pub time: Duration,
     pub increment: Duration,
