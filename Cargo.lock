@@ -362,7 +362,7 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 [[package]]
 name = "taik"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/taik?branch=f-generic-size#5d9831a0ae4d2fb9398a7e8d4b452779a7e487c4"
+source = "git+https://github.com/MortenLohne/taik#fff8cb7ea5f3a7b1372041bcbf2f5c65d64d514f"
 dependencies = [
  "arrayvec",
  "board-game-traits",
