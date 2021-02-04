@@ -120,7 +120,7 @@ pub fn print_score<B: PgnBoard>(
     let engine2_name = &engines[0].1.lock().unwrap().name().to_string();
 
     for game in games.iter() {
-        let (_, white_name) = game.tags.iter().find(|(tag, _val)| tag == "White").unwrap();
+        let (_, white_name) = game.tags.iter().find(|(tag, _val)| tag == "Player1").unwrap();
         match (white_name == engine1_name, game.game_result) {
             (true, Some(WhiteWin)) => {
                 engine1_wins += 1;
