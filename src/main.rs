@@ -74,7 +74,10 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
         .engine_paths
         .iter()
         .zip(cli_args.engine_args.iter())
-        .map(|(path, args)| EngineBuilder { path, args })
+        .map(|(path, args)| EngineBuilder {
+            path: path.to_string(),
+            args: args.clone(),
+        })
         .collect();
 
     let settings: r#match::TournamentSettings<Board<S>> = r#match::TournamentSettings {

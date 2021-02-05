@@ -9,21 +9,21 @@ use std::time::Duration;
 use std::{env, thread};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct EngineBuilder<'a> {
-    pub path: &'a str,
-    pub args: &'a Option<String>,
+pub struct EngineBuilder {
+    pub path: String,
+    pub args: Option<String>,
 }
 
-impl<'a> EngineBuilder<'a> {
+impl EngineBuilder {
     /// Initialize the engine, including starting the binary and reading the engine's available uci commands.
     pub fn init(&self) -> Result<Engine> {
         // TODO: Error for not permission to current directory
         let mut absolute_path = env::current_dir()?;
-        absolute_path.push(self.path);
+        absolute_path.push(&self.path);
 
         // TODO: More helpful error message if engine binary is not found.
         // For example, print contents of directory searched?
-        let mut child = match self.args {
+        let mut child = match &self.args {
             Some(args) => Command::new(&absolute_path)
                 .args(args.split_whitespace())
                 .stdout(Stdio::piped())
@@ -43,6 +43,7 @@ impl<'a> EngineBuilder<'a> {
             stdout,
             stdin,
             name: self.path.to_string(),
+            builder: self.clone(),
         };
 
         engine.uci_write_line("tei")?;
@@ -78,6 +79,7 @@ pub struct Engine {
     stdout: BufReader<ChildStdout>,
     stdin: ChildStdin,
     name: String,
+    builder: EngineBuilder,
 }
 
 impl Engine {
@@ -108,6 +110,13 @@ impl Engine {
         }
     }
 
+    /// Restart the engine from scratch
+    fn restart(&mut self) -> Result<()> {
+        self.shutdown()?;
+        *self = self.builder.init()?;
+        Ok(())
+    }
+
     /// Shuts down the engine process. If the engine does not respond to a `quit` command, kill it.
     fn shutdown(&mut self) -> Result<ExitStatus> {
         info!("Shutting down {}", self.name);
@@ -118,7 +127,10 @@ impl Engine {
         self.uci_write_line("quit")?;
         thread::sleep(Duration::from_secs(1));
         match self.child.try_wait()? {
-            Some(exit_status) => Ok(exit_status),
+            Some(exit_status) => {
+                info!("{} shut down successfully", self.name);
+                Ok(exit_status)
+            }
             None => {
                 warn!("{} failed to shut down, killing", self.name);
                 self.child.kill()?;
