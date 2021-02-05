@@ -13,6 +13,7 @@ pub struct CliOptions {
     pub engine_args: [Option<String>; 2],
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
+    pub log_file_name: Option<String>,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -77,6 +78,14 @@ pub fn parse_cli_arguments() -> CliOptions {
             .takes_value(true)
             .value_name("args")
         )
+        .arg(
+            Arg::with_name("log")
+                .short("l")
+                .long("log")
+                .value_name("racetrack.log")
+                .help("Name of debug logfile")
+                .takes_value(true),
+        )
         .get_matches();
 
     let (time, increment) =
@@ -103,5 +112,6 @@ pub fn parse_cli_arguments() -> CliOptions {
         ],
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
+        log_file_name: matches.value_of("log").map(|s| s.to_string()),
     }
 }

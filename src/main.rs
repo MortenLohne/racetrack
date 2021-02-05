@@ -1,7 +1,9 @@
 use std::io::{BufWriter, Result};
+use std::result;
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
+use fern::InitError;
 use std::fs;
 use std::sync::Mutex;
 use taik::board::{Board, Move};
@@ -30,6 +32,14 @@ fn main() -> Result<()> {
         }?,
         None => vec![vec![]],
     };
+
+    if let Some(log_file_name) = &cli_args.log_file_name.as_ref() {
+        setup_logger(&log_file_name).map_err(|err| match err {
+            InitError::Io(io_err) => io_err,
+            InitError::SetLoggerError(_) => panic!("Logger already initialized"),
+        })?;
+    }
+
     match cli_args.size {
         4 => run_match::<4>(openings, cli_args)?,
         5 => run_match::<5>(openings, cli_args)?,
@@ -39,6 +49,23 @@ fn main() -> Result<()> {
         s => panic!("Size {} not supported", s),
     }
 
+    Ok(())
+}
+
+fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}[{}][{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(fern::log_file(file_name)?)
+        .apply()?;
     Ok(())
 }
 

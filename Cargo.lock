@@ -269,6 +269,7 @@ dependencies = [
  "board-game-traits",
  "chrono",
  "clap",
+ "fern",
  "log",
  "pgn-traits",
  "rayon",

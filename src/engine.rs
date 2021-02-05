@@ -1,4 +1,5 @@
 use crate::uci::parser::parse_option;
+use log::{debug, info};
 use std::env;
 use std::io;
 use std::io::Result;
@@ -55,9 +56,7 @@ impl<'a> EngineBuilder<'a> {
                 Some("option") => {
                     options.push(parse_option(&input).unwrap()); // TODO: Handle error
                 }
-                None | Some(_) => {
-                    // TODO: Print debug message
-                }
+                s => info!("Unexpected message \"{}\", ignoring", s.unwrap_or_default()),
             }
         }
 
@@ -91,7 +90,7 @@ impl Engine {
 
     pub fn uci_write_line(&mut self, line: &str) -> Result<()> {
         writeln!(self.stdin, "{}", line)?;
-        // println!("> {}: {}", self.name, line);
+        debug!("> {}: {}", self.name, line);
         self.stdin.flush()
     }
 
@@ -103,8 +102,7 @@ impl Engine {
                 "Read 0 bytes from engine",
             ))
         } else {
-            // print!("< {}: {}", self.name, input);
-            // io::stdout().flush()?;
+            debug!("< {}: {}", self.name, input.trim());
             Ok(input)
         }
     }
