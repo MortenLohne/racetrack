@@ -1,11 +1,12 @@
 use crate::uci::parser::parse_option;
-use log::{debug, info};
-use std::env;
+use log::{debug, info, warn};
 use std::io;
 use std::io::Result;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
 use std::string::ToString;
+use std::time::Duration;
+use std::{env, thread};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EngineBuilder<'a> {
@@ -38,7 +39,7 @@ impl<'a> EngineBuilder<'a> {
         let stdin = child.stdin.take().unwrap();
 
         let mut engine = Engine {
-            _child: child,
+            child: child,
             stdout,
             stdin,
             name: self.path.to_string(),
@@ -73,7 +74,7 @@ impl<'a> EngineBuilder<'a> {
 }
 
 pub struct Engine {
-    _child: Child,
+    child: Child,
     stdout: BufReader<ChildStdout>,
     stdin: ChildStdin,
     name: String,
@@ -104,6 +105,28 @@ impl Engine {
         } else {
             debug!("< {}: {}", self.name, input.trim());
             Ok(input)
+        }
+    }
+
+    /// Shuts down the engine process. If the engine does not respond to a `quit` command, kill it.
+    fn shutdown(&mut self) -> Result<ExitStatus> {
+        info!("Shutting down {}", self.name);
+        if let Some(exit_status) = self.child.try_wait()? {
+            info!("{} has already exited", self.name);
+            return Ok(exit_status);
+        }
+        self.uci_write_line("quit")?;
+        thread::sleep(Duration::from_secs(1));
+        match self.child.try_wait()? {
+            Some(exit_status) => Ok(exit_status),
+            None => {
+                warn!("{} failed to shut down, killing", self.name);
+                self.child.kill()?;
+                thread::sleep(Duration::from_secs(1));
+                let result = self.child.wait()?;
+                warn!("{} killed successfully", self.name);
+                Ok(result)
+            }
         }
     }
 }
