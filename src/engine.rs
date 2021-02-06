@@ -39,7 +39,7 @@ impl EngineBuilder {
         let stdin = child.stdin.take().unwrap();
 
         let mut engine = Engine {
-            child: child,
+            child,
             stdout,
             stdin,
             name: self.path.to_string(),
@@ -111,14 +111,14 @@ impl Engine {
     }
 
     /// Restart the engine from scratch
-    fn restart(&mut self) -> Result<()> {
+    pub fn restart(&mut self) -> Result<()> {
         self.shutdown()?;
         *self = self.builder.init()?;
         Ok(())
     }
 
     /// Shuts down the engine process. If the engine does not respond to a `quit` command, kill it.
-    fn shutdown(&mut self) -> Result<ExitStatus> {
+    pub fn shutdown(&mut self) -> Result<ExitStatus> {
         info!("Shutting down {}", self.name);
         if let Some(exit_status) = self.child.try_wait()? {
             info!("{} has already exited", self.name);

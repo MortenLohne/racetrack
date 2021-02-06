@@ -7,8 +7,10 @@ use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
 use board_game_traits::board::{Color, GameResult};
 use chrono::{Datelike, Local};
+use log::error;
 use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write as WriteFmt;
+use std::io;
 use std::io::Result;
 use std::time::Instant;
 
@@ -82,7 +84,35 @@ where
         let mut last_uci_info: Option<UciInfo<B>> = None;
 
         loop {
-            let input = engine_to_move.uci_read_line()?;
+            let read_result = engine_to_move.uci_read_line();
+
+            if let Err(err) = read_result {
+                if err.kind() == io::ErrorKind::UnexpectedEof {
+                    warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), round);
+                    let loop_result = match board.side_to_move() {
+                        Color::White => (
+                            Some(GameResult::BlackWin),
+                            "White disconnected or crashed".to_string(),
+                        ),
+                        Color::Black => (
+                            Some(GameResult::WhiteWin),
+                            "Black disconnected or crashed".to_string(),
+                        ),
+                    };
+                    engine_to_move.restart()?;
+                    break 'gameloop loop_result;
+                } else {
+                    error!(
+                        "Fatal io error from {} during game {}",
+                        engine_to_move.name(),
+                        round
+                    );
+                    return Err(err);
+                }
+            }
+
+            let input = read_result.unwrap();
+
             if input.starts_with("info") {
                 match parse_info_string(&input) {
                     Ok(uci_info) => last_uci_info = Some(uci_info),
