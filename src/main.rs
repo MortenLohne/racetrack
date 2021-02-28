@@ -17,6 +17,7 @@ pub mod pgn_writer;
 #[cfg(test)]
 mod tests;
 pub mod uci;
+mod worker;
 
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
