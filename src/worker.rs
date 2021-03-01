@@ -10,7 +10,7 @@ use std::fmt::Write;
 use std::io;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
-use std::thread::{Builder, Thread};
+use std::thread::{Builder, Thread, JoinHandle};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,11 +43,18 @@ impl<B: PgnBoard + Clone + Send + 'static> Tournament<B>
 where
     B::Move: Send,
 {
-    fn new(
-        threads: usize,
-        engine_builders: &[EngineBuilder],
-        games: &[ScheduledGame<B>],
-    ) -> Tournament<B> {
+    fn new(games: &[ScheduledGame<B>]) -> Tournament<B> {
+        Tournament {
+            games_schedule: Mutex::new(GamesSchedule {
+                scheduled_games: games.to_vec(),
+                next_game_id: 0,
+            }),
+            finished_games: Mutex::new(vec![None; games.len()]),
+            total_games: games.len(),
+        }
+    }
+
+    fn play(self, threads: usize, engine_builders: &[EngineBuilder]) -> Vec<Game<B>> {
         let workers: Vec<Worker> = (0..threads)
             .map(|id| Worker {
                 id,
@@ -57,18 +64,10 @@ where
                     .collect(),
             })
             .collect();
-        let tournament = Tournament {
-            games_schedule: Mutex::new(GamesSchedule {
-                scheduled_games: games.to_vec(),
-                next_game_id: 0,
-            }),
-            finished_games: Mutex::new(vec![None; games.len()]),
-            total_games: games.len(),
-        };
 
-        let tournament_arc = Arc::new(tournament);
+        let tournament_arc = Arc::new(self);
 
-        for mut worker in workers {
+        let thread_handles: Vec<JoinHandle<()>> = workers.into_iter().map(|mut worker| {
             let thread_tournament = tournament_arc.clone();
             Builder::new()
                 .name(format!("Worker #{}", worker.id))
@@ -82,9 +81,13 @@ where
                         }
                     }
                 })
-                .unwrap();
+                .unwrap()
+        }).collect();
+        for thread_handle in thread_handles {
+            thread_handle.join().unwrap();
         }
-        unimplemented!()
+        let tournament = tournament_arc.finished_games.lock().unwrap();
+        tournament.iter().map(|game| game.to_owned().unwrap()).collect()
     }
 
     fn next_unplayed_game(&self) -> Option<ScheduledGame<B>> {
