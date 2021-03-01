@@ -1,4 +1,4 @@
-use crate::engine::Engine;
+use crate::engine::{Engine, EngineBuilder};
 use crate::pgn_writer::Game;
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
@@ -9,7 +9,8 @@ use pgn_traits::pgn::PgnBoard;
 use std::fmt::Write;
 use std::io;
 use std::io::Result;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::thread::{Builder, Thread};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,13 +34,59 @@ struct GamesSchedule<B: PgnBoard> {
 }
 
 struct Tournament<B: PgnBoard> {
-    workers: Vec<Worker>,
     games_schedule: Mutex<GamesSchedule<B>>,
-    finished_games: Mutex<Vec<Game<B>>>,
+    finished_games: Mutex<Vec<Option<Game<B>>>>,
     total_games: usize,
 }
 
-impl<B: PgnBoard + Clone> Tournament<B> {
+impl<B: PgnBoard + Clone + Send + 'static> Tournament<B>
+where
+    B::Move: Send,
+{
+    fn new(
+        threads: usize,
+        engine_builders: &[EngineBuilder],
+        games: &[ScheduledGame<B>],
+    ) -> Tournament<B> {
+        let workers: Vec<Worker> = (0..threads)
+            .map(|id| Worker {
+                id,
+                engines: engine_builders
+                    .iter()
+                    .map(|builder| builder.init().unwrap())
+                    .collect(),
+            })
+            .collect();
+        let tournament = Tournament {
+            games_schedule: Mutex::new(GamesSchedule {
+                scheduled_games: games.to_vec(),
+                next_game_id: 0,
+            }),
+            finished_games: Mutex::new(vec![None; games.len()]),
+            total_games: games.len(),
+        };
+
+        let tournament_arc = Arc::new(tournament);
+
+        for mut worker in workers {
+            let thread_tournament = tournament_arc.clone();
+            Builder::new()
+                .name(format!("Worker #{}", worker.id))
+                .spawn(move || {
+                    while let Some(scheduled_game) = thread_tournament.next_unplayed_game() {
+                        let game = worker.play_game(scheduled_game.clone()).unwrap();
+                        {
+                            let mut finished_games =
+                                thread_tournament.finished_games.lock().unwrap();
+                            finished_games[scheduled_game.round_number] = Some(game);
+                        }
+                    }
+                })
+                .unwrap();
+        }
+        unimplemented!()
+    }
+
     fn next_unplayed_game(&self) -> Option<ScheduledGame<B>> {
         let mut games_schedule = self.games_schedule.lock().unwrap();
         if let Some(scheduled_game) = games_schedule
@@ -56,6 +103,7 @@ impl<B: PgnBoard + Clone> Tournament<B> {
 }
 
 struct Worker {
+    id: usize,
     engines: Vec<Engine>,
 }
 
