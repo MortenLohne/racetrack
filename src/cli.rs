@@ -6,7 +6,7 @@ use std::time::Duration;
 pub struct CliOptions {
     pub size: usize,
     pub concurrency: usize,
-    pub games: u64,
+    pub games: usize,
     pub time: Duration,
     pub increment: Duration,
     pub engine_paths: [String; 2],

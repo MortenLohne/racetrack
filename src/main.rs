@@ -1,8 +1,9 @@
 use std::io::{BufWriter, Result};
-use std::result;
+use std::{io, result};
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
+use crate::tournament::Tournament;
 use fern::InitError;
 use std::fs;
 use std::sync::Mutex;
@@ -16,8 +17,8 @@ mod openings;
 pub mod pgn_writer;
 #[cfg(test)]
 mod tests;
+mod tournament;
 pub mod uci;
-mod worker;
 
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
@@ -81,6 +82,18 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
         })
         .collect();
 
+    let pgnout = if let Some(file_name) = cli_args.pgnout.as_ref() {
+        r#match::PgnWriter::new(BufWriter::new(
+            fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(file_name)
+                .unwrap(),
+        ))
+    } else {
+        r#match::PgnWriter::new(io::sink())
+    };
+
     let settings: r#match::TournamentSettings<Board<S>> = r#match::TournamentSettings {
         size: cli_args.size,
         concurrency: cli_args.concurrency,
@@ -88,24 +101,14 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
         increment: cli_args.increment,
         openings,
         num_minimatches: (cli_args.games + 1) / 2,
-        pgn_writer: cli_args.pgnout.as_ref().map(|pgnout| {
-            Mutex::new(r#match::PgnWriter::new(BufWriter::new(
-                fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(pgnout)
-                    .unwrap(),
-            )))
-        }),
+        pgn_writer: Mutex::new(pgnout),
     };
 
     println!("CLI args: {:?}", cli_args);
     println!("Settings: {:?}", settings);
 
-    let _ = r#match::play_match(
-        &settings,
-        engine_builders[0].clone(),
-        engine_builders[1].clone(),
-    );
+    let tournament = Tournament::new_head_to_head(settings);
+
+    tournament.play(cli_args.concurrency, &engine_builders);
     Ok(())
 }
