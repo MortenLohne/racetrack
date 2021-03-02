@@ -17,4 +17,4 @@ tiltak = { git = "https://github.com/MortenLohne/tiltak" }
 clap = "2.33"
 chrono = "0.4.19"
 log = "0.4"
-fern = "0.5"
+fern = "0.6"
