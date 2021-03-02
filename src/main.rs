@@ -43,11 +43,11 @@ fn main() -> Result<()> {
     }
 
     match cli_args.size {
-        4 => run_match::<4>(openings, cli_args)?,
-        5 => run_match::<5>(openings, cli_args)?,
-        6 => run_match::<6>(openings, cli_args)?,
-        7 => run_match::<7>(openings, cli_args)?,
-        8 => run_match::<8>(openings, cli_args)?,
+        4 => run_match::<4>(openings, cli_args),
+        5 => run_match::<5>(openings, cli_args),
+        6 => run_match::<6>(openings, cli_args),
+        7 => run_match::<7>(openings, cli_args),
+        8 => run_match::<8>(openings, cli_args),
         s => panic!("Size {} not supported", s),
     }
 
@@ -71,7 +71,7 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
     Ok(())
 }
 
-fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> Result<()> {
+fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
     let engine_builders: Vec<EngineBuilder> = cli_args
         .engine_paths
         .iter()
@@ -110,5 +110,4 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
     let tournament = Tournament::new_head_to_head(settings);
 
     tournament.play(cli_args.concurrency, &engine_builders);
-    Ok(())
 }
