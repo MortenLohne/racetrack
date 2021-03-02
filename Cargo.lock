@@ -40,9 +40,9 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "board-game-traits"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cb754816c075082acb2dc2dcd311ade978c5ef9df46c623126046125d52be51"
+checksum = "57ca22f9999ab8c9b5159210f7144b199229ae2e76eef23d683e2f856844dccf"
 
 [[package]]
 name = "bufstream"
@@ -127,28 +127,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cca32fa0182e8c0989459524dc356b8f2b5c10f1b9eb521b7d182c03cf8c5ff"
 
 [[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
+
+[[package]]
 name = "log"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "memchr"
-version = "2.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
-
-[[package]]
-name = "nom"
-version = "4.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ad2a91a8e869eeb30b9cb3119ae87773a8f4ae617f41b1eb9c154b2905f7bd6"
-dependencies = [
- "memchr",
- "version_check",
 ]
 
 [[package]]
@@ -168,13 +158,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
 name = "pgn-traits"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67750adf1a67d449ce98b33080ee70851ed18baa6a05abf007bf2e34d8b2967b"
+checksum = "48fcb6c62f408cadff11e45ba1bf9aaca14155c243b53fd8f621179f9bf4e6ab"
 dependencies = [
  "board-game-traits",
 ]
@@ -195,7 +186,7 @@ dependencies = [
  "fern",
  "log",
  "pgn-traits",
- "taik",
+ "tiltak",
 ]
 
 [[package]]
@@ -231,6 +222,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
+dependencies = [
+ "num-traits",
+ "rand",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -246,9 +247,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
-name = "taik"
+name = "textwrap"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
+name = "tiltak"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/taik#fff8cb7ea5f3a7b1372041bcbf2f5c65d64d514f"
+source = "git+https://github.com/MortenLohne/tiltak#8d38cc008a77e75a99f033f46d1ae44a3b500fda"
 dependencies = [
  "arrayvec",
  "board-game-traits",
@@ -258,18 +268,9 @@ dependencies = [
  "fern",
  "lazy_static",
  "log",
- "nom",
  "pgn-traits",
  "rand",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width",
+ "rand_distr",
 ]
 
 [[package]]
@@ -294,12 +295,6 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
-
-[[package]]
-name = "version_check"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "914b1a6776c4c929a602fafd8bc742e06365d4bcbe48c30f9cca5824f70dc9dd"
 
 [[package]]
 name = "wasi"

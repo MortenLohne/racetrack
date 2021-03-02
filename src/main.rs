@@ -8,7 +8,7 @@ use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
 use std::fs;
 use std::sync::Mutex;
-use taik::board::{Board, Move};
+use tiltak::board::{Board, Move};
 
 mod cli;
 mod engine;

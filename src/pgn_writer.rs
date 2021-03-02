@@ -1,18 +1,18 @@
-use board_game_traits::board::{Board as BoardTrait, Board};
-use board_game_traits::board::{Color, GameResult};
-use pgn_traits::pgn::PgnBoard;
+use board_game_traits::{Color, GameResult};
+use board_game_traits::{Position as PositionTrait, Position};
+use pgn_traits::PgnPosition;
 use std::io;
 use std::io::Write;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Game<B: BoardTrait> {
+pub struct Game<B: PositionTrait> {
     pub start_board: B,
     pub moves: Vec<(B::Move, String)>,
     pub game_result: Option<GameResult>,
     pub tags: Vec<(String, String)>,
 }
 
-impl<B: PgnBoard + Clone> Game<B> {
+impl<B: PgnPosition + Clone> Game<B> {
     pub fn game_to_pgn<W: Write>(&self, f: &mut W) -> Result<(), io::Error> {
         // Write the 7 required tags first, in the correct order
         // Fill in default value if they are not available
@@ -52,7 +52,7 @@ impl<B: PgnBoard + Clone> Game<B> {
             }
         )?;
 
-        if self.start_board != B::start_board()
+        if self.start_board != B::start_position()
             && tags
                 .iter()
                 .find(|(tag, _)| tag.eq_ignore_ascii_case("FEN"))
@@ -119,13 +119,13 @@ impl<B: PgnBoard + Clone> Game<B> {
 
 /// A wrapper around a `Write` instance, to ensure that PGNs are written in order
 ///
-pub struct PgnWriter<B: Board> {
+pub struct PgnWriter<B: Position> {
     pgn_out: Box<dyn io::Write + Send>,
     pending_games: Vec<(usize, Game<B>)>,
     next_game_number: usize,
 }
 
-impl<B: PgnBoard + Clone> PgnWriter<B> {
+impl<B: PgnPosition + Clone> PgnWriter<B> {
     pub fn new<W: io::Write + Send + 'static>(pgn_out: W) -> Self {
         PgnWriter {
             pgn_out: Box::new(pgn_out),

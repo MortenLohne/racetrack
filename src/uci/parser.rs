@@ -1,5 +1,5 @@
 use crate::uci::{UciError, UciErrorKind, UciInfo, UciOption, UciOptionType};
-use pgn_traits::pgn::PgnBoard;
+use pgn_traits::PgnPosition;
 use std::result;
 use std::str::FromStr;
 use std::time::Duration;
@@ -166,7 +166,7 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     })
 }
 
-pub fn parse_info_string<B: PgnBoard>(input: &str) -> Result<UciInfo<B>, UciError> {
+pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciError> {
     let mut pv: Vec<&str> = vec![];
     let mut cp_score = None;
 

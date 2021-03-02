@@ -1,4 +1,4 @@
-use board_game_traits::board::Board;
+use board_game_traits::Position;
 use std::error::Error;
 use std::fmt;
 
@@ -74,7 +74,7 @@ pub enum UciOptionType {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct UciInfo<B: Board> {
+pub struct UciInfo<B: Position> {
     pub depth: u16,
     pub seldepth: u16,
     pub time: i64,

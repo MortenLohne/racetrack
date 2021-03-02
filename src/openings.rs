@@ -1,16 +1,16 @@
-use board_game_traits::board::Board as BoardTrait;
-use pgn_traits::pgn::PgnBoard;
+use board_game_traits::Position as PositionTrait;
+use pgn_traits::PgnPosition;
 use std::fs;
 use std::io;
 use std::io::BufRead;
-use taik::board::{Board, Move};
+use tiltak::board::{Board, Move};
 
 pub fn openings_from_file<const S: usize>(path: &str) -> io::Result<Vec<Vec<Move>>> {
     let reader = io::BufReader::new(fs::File::open(path)?);
     let mut openings = vec![];
 
     for line in reader.lines() {
-        let mut board = <Board<S>>::start_board();
+        let mut board = <Board<S>>::start_position();
         let mut moves = vec![];
         for mv_string in line?.split_whitespace() {
             let mv = board

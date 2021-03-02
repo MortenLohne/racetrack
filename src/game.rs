@@ -2,16 +2,16 @@ use crate::pgn_writer::Game;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
-use board_game_traits::board::{Color, GameResult};
+use board_game_traits::{Color, GameResult};
 use chrono::{Datelike, Local};
 use log::{error, warn};
-use pgn_traits::pgn::PgnBoard;
+use pgn_traits::PgnPosition;
 use std::fmt::Write;
 use std::io;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScheduledGame<B: PgnBoard> {
+pub struct ScheduledGame<B: PgnPosition> {
     pub round_number: usize,
     pub opening: Vec<B::Move>,
     pub white_engine_id: EngineId,
@@ -21,9 +21,9 @@ pub struct ScheduledGame<B: PgnBoard> {
     pub size: usize,
 }
 
-impl<B: PgnBoard> ScheduledGame<B> {
+impl<B: PgnPosition> ScheduledGame<B> {
     pub(crate) fn play_game(self, worker: &mut Worker) -> io::Result<Game<B>> {
-        let mut board = B::start_board();
+        let mut board = B::start_position();
         let (mut white, mut black) = worker
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();
@@ -67,7 +67,7 @@ impl<B: PgnBoard> ScheduledGame<B> {
 
             let mut position_string = String::new();
             write!(position_string, "position startpos moves ").unwrap();
-            let mut position_board = B::start_board();
+            let mut position_board = B::start_position();
             for (mv, _comment) in moves.iter() {
                 write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
                 position_board.do_move(mv.clone());
@@ -199,7 +199,7 @@ impl<B: PgnBoard> ScheduledGame<B> {
         }
 
         let game = Game {
-            start_board: B::start_board(),
+            start_board: B::start_position(),
             moves,
             game_result: result,
             tags,
