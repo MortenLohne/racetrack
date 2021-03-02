@@ -1,2 +1,4 @@
 /target
 .idea
+# Emacs temp files
+*~
