@@ -3,7 +3,8 @@ use std::{io, result};
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
-use crate::tournament::Tournament;
+use crate::pgn_writer::PgnWriter;
+use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
 use std::fs;
 use std::sync::Mutex;
@@ -12,7 +13,6 @@ use taik::board::{Board, Move};
 mod cli;
 mod engine;
 mod game;
-mod r#match;
 mod openings;
 pub mod pgn_writer;
 #[cfg(test)]
@@ -83,7 +83,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
         .collect();
 
     let pgnout = if let Some(file_name) = cli_args.pgnout.as_ref() {
-        r#match::PgnWriter::new(BufWriter::new(
+        PgnWriter::new(BufWriter::new(
             fs::OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -91,10 +91,10 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) -> 
                 .unwrap(),
         ))
     } else {
-        r#match::PgnWriter::new(io::sink())
+        PgnWriter::new(io::sink())
     };
 
-    let settings: r#match::TournamentSettings<Board<S>> = r#match::TournamentSettings {
+    let settings: TournamentSettings<Board<S>> = TournamentSettings {
         size: cli_args.size,
         concurrency: cli_args.concurrency,
         time: cli_args.time,
