@@ -14,7 +14,7 @@ mod cli;
 mod engine;
 mod game;
 mod openings;
-pub mod pgn_writer;
+mod pgn_writer;
 #[cfg(test)]
 mod tests;
 mod tournament;

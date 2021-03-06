@@ -1,12 +1,13 @@
 use crate::engine::{Engine, EngineBuilder};
 use crate::game::ScheduledGame;
-use crate::pgn_writer::{Game, PgnWriter};
+use crate::pgn_writer::PgnWriter;
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
+use tiltak::ptn::Game;
 
 pub struct TournamentSettings<B: PgnPosition> {
     pub size: usize,

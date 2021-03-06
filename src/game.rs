@@ -1,4 +1,3 @@
-use crate::pgn_writer::Game;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
@@ -9,6 +8,7 @@ use pgn_traits::PgnPosition;
 use std::fmt::Write;
 use std::io;
 use std::time::{Duration, Instant};
+use tiltak::ptn::{Game, PtnMove};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScheduledGame<B: PgnPosition> {
@@ -28,12 +28,16 @@ impl<B: PgnPosition> ScheduledGame<B> {
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();
 
-        let mut moves: Vec<(B::Move, String)> = self
+        let mut moves: Vec<PtnMove<B::Move>> = self
             .opening
             .iter()
-            .map(|mv| (mv.clone(), String::new()))
+            .map(|mv| PtnMove {
+                mv: mv.clone(),
+                annotations: vec![],
+                comment: String::new(),
+            })
             .collect();
-        for (mv, _comment) in moves.iter() {
+        for PtnMove { mv, .. } in moves.iter() {
             board.do_move(mv.clone());
         }
         white.uci_write_line(&format!("teinewgame {}", self.size))?;
@@ -68,7 +72,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
             let mut position_string = String::new();
             write!(position_string, "position startpos moves ").unwrap();
             let mut position_board = B::start_position();
-            for (mv, _comment) in moves.iter() {
+            for PtnMove { mv, .. } in moves.iter() {
                 write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
                 position_board.do_move(mv.clone());
             }
@@ -157,7 +161,11 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         ),
                         None => String::new(),
                     };
-                    moves.push((mv, score_string));
+                    moves.push(PtnMove {
+                        mv,
+                        annotations: vec![],
+                        comment: score_string,
+                    });
                     break;
                 }
             }
@@ -199,7 +207,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
         }
 
         let game = Game {
-            start_board: B::start_position(),
+            start_position: B::start_position(),
             moves,
             game_result: result,
             tags,
