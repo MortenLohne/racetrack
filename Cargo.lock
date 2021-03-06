@@ -131,9 +131,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.86"
+version = "0.2.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7282d924be3275cec7f6756ff4121987bc6481325397dde6ba3e7802b1a8b1c"
+checksum = "03b07a082330a35e43f63177cc01689da34fbffa0105e1246cf0311472cac73a"
 
 [[package]]
 name = "libm"
@@ -172,9 +172,9 @@ dependencies = [
 
 [[package]]
 name = "pgn-traits"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48fcb6c62f408cadff11e45ba1bf9aaca14155c243b53fd8f621179f9bf4e6ab"
+checksum = "6323ec81aab968b56d11ccb229ae2bf25c981007de7e4b72ead97b983847d858"
 dependencies = [
  "board-game-traits",
 ]
@@ -267,7 +267,7 @@ dependencies = [
 [[package]]
 name = "tiltak"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/tiltak#8d38cc008a77e75a99f033f46d1ae44a3b500fda"
+source = "git+https://github.com/MortenLohne/tiltak#e8571d98832e606fb64bfce0c3ee2902d09bc432"
 dependencies = [
  "arrayvec",
  "board-game-traits",

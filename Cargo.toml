@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 board-game-traits = "0.2"
-pgn-traits = "0.2.1"
+pgn-traits = "0.2.2"
 tiltak = { git = "https://github.com/MortenLohne/tiltak" }
 clap = "2.33"
 chrono = "0.4.19"
