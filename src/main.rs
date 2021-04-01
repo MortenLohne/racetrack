@@ -8,7 +8,7 @@ use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
 use std::fs;
 use std::sync::Mutex;
-use tiltak::board::{Board, Move};
+use tiltak::position::{Move, Position};
 
 mod cli;
 mod engine;
@@ -94,7 +94,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
         PgnWriter::new(io::sink())
     };
 
-    let settings: TournamentSettings<Board<S>> = TournamentSettings {
+    let settings: TournamentSettings<Position<S>> = TournamentSettings {
         size: cli_args.size,
         concurrency: cli_args.concurrency,
         time: cli_args.time,

@@ -23,7 +23,7 @@ pub struct ScheduledGame<B: PgnPosition> {
 
 impl<B: PgnPosition> ScheduledGame<B> {
     pub(crate) fn play_game(self, worker: &mut Worker) -> io::Result<Game<B>> {
-        let mut board = B::start_position();
+        let mut position = B::start_position();
         let (mut white, mut black) = worker
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();
@@ -38,7 +38,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
             })
             .collect();
         for PtnMove { mv, .. } in moves.iter() {
-            board.do_move(mv.clone());
+            position.do_move(mv.clone());
         }
         white.uci_write_line(&format!("teinewgame {}", self.size))?;
         white.uci_write_line("isready")?;
@@ -60,11 +60,11 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 );
             }
 
-            let result = board.game_result();
+            let result = position.game_result();
             if result.is_some() {
                 break (result, String::new());
             }
-            let engine_to_move = match board.side_to_move() {
+            let engine_to_move = match position.side_to_move() {
                 Color::White => &mut white,
                 Color::Black => &mut black,
             };
@@ -97,7 +97,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 if let Err(err) = read_result {
                     if err.kind() == io::ErrorKind::UnexpectedEof {
                         warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), self.round_number);
-                        let loop_result = match board.side_to_move() {
+                        let loop_result = match position.side_to_move() {
                             Color::White => (
                                 Some(GameResult::BlackWin),
                                 "White disconnected or crashed".to_string(),
@@ -129,12 +129,12 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 }
                 if input.starts_with("bestmove") {
                     let move_string = input.split_whitespace().nth(1).unwrap();
-                    let mv = board.move_from_lan(move_string).unwrap();
+                    let mv = position.move_from_lan(move_string).unwrap();
                     let mut legal_moves = vec![];
-                    board.generate_moves(&mut legal_moves);
+                    position.generate_moves(&mut legal_moves);
                     // Check that the move is legal
                     if !legal_moves.contains(&mv) {
-                        match board.side_to_move() {
+                        match position.side_to_move() {
                             Color::White => {
                                 break 'gameloop (
                                     Some(GameResult::BlackWin),
@@ -149,7 +149,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                             }
                         }
                     }
-                    board.do_move(mv.clone());
+                    position.do_move(mv.clone());
 
                     let score_string = match last_uci_info {
                         Some(uci_info) => format!(
@@ -170,7 +170,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 }
             }
             let time_taken = start_time_for_move.elapsed();
-            match !board.side_to_move() {
+            match !position.side_to_move() {
                 Color::White => {
                     if time_taken <= white_time {
                         white_time -= time_taken;
