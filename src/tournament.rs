@@ -80,6 +80,8 @@ where
             .collect();
 
         // Initialize engines
+        println!("Initializing engines");
+
         let workers: Vec<Worker> = (0..threads)
             .map(|id| Worker {
                 id,
@@ -103,6 +105,17 @@ where
             .collect();
 
         let tournament_arc = Arc::new(self);
+
+        println!(
+            "Starting {} worker thread(s) to play {} games",
+            workers.len(),
+            tournament_arc
+                .games_schedule
+                .lock()
+                .unwrap()
+                .scheduled_games
+                .len()
+        );
 
         let thread_handles: Vec<JoinHandle<()>> = workers
             .into_iter()

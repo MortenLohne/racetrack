@@ -23,16 +23,20 @@ pub mod uci;
 
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
+    println!("CLI args: {:?}", cli_args);
 
     let openings = match &cli_args.book_path {
-        Some(path) => match cli_args.size {
-            4 => openings::openings_from_file::<4>(path),
-            5 => openings::openings_from_file::<5>(path),
-            6 => openings::openings_from_file::<6>(path),
-            7 => openings::openings_from_file::<7>(path),
-            8 => openings::openings_from_file::<8>(path),
-            s => panic!("Size {} not supported", s),
-        }?,
+        Some(path) => {
+            println!("Loading opening book");
+            match cli_args.size {
+                4 => openings::openings_from_file::<4>(path),
+                5 => openings::openings_from_file::<5>(path),
+                6 => openings::openings_from_file::<6>(path),
+                7 => openings::openings_from_file::<7>(path),
+                8 => openings::openings_from_file::<8>(path),
+                s => panic!("Size {} not supported", s),
+            }?
+        }
         None => vec![vec![]],
     };
 
@@ -104,9 +108,6 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
         num_minimatches: (cli_args.games + 1) / 2,
         pgn_writer: Mutex::new(pgnout),
     };
-
-    println!("CLI args: {:?}", cli_args);
-    println!("Settings: {:?}", settings);
 
     let tournament = Tournament::new_head_to_head(settings);
 
