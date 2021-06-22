@@ -45,7 +45,19 @@ pub fn parse_cli_arguments() -> CliOptions {
             .default_value("1")
             .short("c")
             .long("concurrency")
-            .value_name("1"))
+            .value_name("n")
+            .validator(|input| {
+                match input.parse::<usize>() {
+                    Ok(num) => {
+                        if num == 0 || num > 1024 {
+                            Err("Must be between 1 and 1024".to_string())
+                        } else { Ok(()) }
+                    }
+                    Err(err) => {
+                        Err(err.to_string())
+                    }
+                }
+            }))
         .arg(Arg::with_name("games")
             .help("Number of games to play.")
             .short("g")
