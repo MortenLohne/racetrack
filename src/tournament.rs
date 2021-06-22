@@ -84,7 +84,14 @@ where
                 id,
                 engines: engine_builders
                     .iter()
-                    .map(|builder| builder.init().unwrap())
+                    .map(|builder| {
+                        match builder.init() {
+                            Ok(engine) => engine,
+                            Err(err) => {
+                                panic!("Error while initializing \"{}\", the engine probably crashed. Caused by: {}", builder.path, err)
+                            }
+                        }
+                    })
                     .collect(),
             })
             .collect();
