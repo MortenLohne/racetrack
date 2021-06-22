@@ -1,11 +1,12 @@
 use std::io::{BufWriter, Result};
-use std::{io, result};
+use std::{io, process, result};
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
 use crate::pgn_writer::PgnWriter;
 use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
+use log::error;
 use std::fs;
 use std::sync::Mutex;
 use tiltak::position::{Move, Position};
@@ -110,4 +111,12 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
     let tournament = Tournament::new_head_to_head(settings);
 
     tournament.play(cli_args.concurrency, &engine_builders);
+}
+
+/// Utility for quickly exiting during initialization, generally due to a user error
+/// Engines that have already been started still seem to get killed, at least on Linux
+fn exit_with_error(error_message: &str) -> ! {
+    eprintln!("{}", error_message);
+    error!("{}", error_message);
+    process::exit(1)
 }

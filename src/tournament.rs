@@ -1,4 +1,5 @@
 use crate::engine::{Engine, EngineBuilder};
+use crate::exit_with_error;
 use crate::game::ScheduledGame;
 use crate::pgn_writer::PgnWriter;
 use board_game_traits::GameResult::*;
@@ -6,7 +7,7 @@ use pgn_traits::PgnPosition;
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
-use std::{fmt, io, process};
+use std::{fmt, io};
 use tiltak::ptn::Game;
 
 pub struct TournamentSettings<B: PgnPosition> {
@@ -90,15 +91,10 @@ where
                             Err(err) => {
                                 match err.kind() {
                                     io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied =>
-                                        eprintln!("Failed to start engine \"{}\", caused by: {}",
-                                               builder.path, err),
-                                    _ => eprintln!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err)
+                                        exit_with_error(&format!("Failed to start engine \"{}\", caused by: {}",
+                                               builder.path, err)),
+                                    _ => exit_with_error(&format!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err))
                                 }
-                                // This exits immediately without unwinding. Engines that have
-                                // already been started still seem to get killed,
-                                // at least on Linux
-                                eprintln!("Unrecoverable error, exiting...");
-                                process::exit(1);
                             }
                         }
                     })
