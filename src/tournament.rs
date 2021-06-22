@@ -6,7 +6,7 @@ use pgn_traits::PgnPosition;
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
-use std::{fmt, io};
+use std::{fmt, io, process};
 use tiltak::ptn::Game;
 
 pub struct TournamentSettings<B: PgnPosition> {
@@ -90,10 +90,15 @@ where
                             Err(err) => {
                                 match err.kind() {
                                     io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied =>
-                                        panic!("Failed to start engine \"{}\", caused by: {}",
+                                        eprintln!("Failed to start engine \"{}\", caused by: {}",
                                                builder.path, err),
-                                    _ => panic!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err)
+                                    _ => eprintln!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err)
                                 }
+                                // This exits immediately without unwinding. Engines that have
+                                // already been started still seem to get killed,
+                                // at least on Linux
+                                eprintln!("Unrecoverable error, exiting...");
+                                process::exit(1);
                             }
                         }
                     })
