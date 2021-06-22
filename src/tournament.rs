@@ -3,10 +3,10 @@ use crate::game::ScheduledGame;
 use crate::pgn_writer::PgnWriter;
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
-use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
+use std::{fmt, io};
 use tiltak::ptn::Game;
 
 pub struct TournamentSettings<B: PgnPosition> {
@@ -88,7 +88,12 @@ where
                         match builder.init() {
                             Ok(engine) => engine,
                             Err(err) => {
-                                panic!("Error while initializing \"{}\", the engine probably crashed. Caused by: {}", builder.path, err)
+                                match err.kind() {
+                                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied =>
+                                        panic!("Failed to start engine \"{}\", caused by: {}",
+                                               builder.path, err),
+                                    _ => panic!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err)
+                                }
                             }
                         }
                     })
