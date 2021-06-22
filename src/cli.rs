@@ -34,6 +34,7 @@ pub fn parse_cli_arguments() -> CliOptions {
             .help("Specify the file path of an engine. Must be used twice to add both engines.")
             .short("e")
             .long("engine")
+            .required(true)
             .multiple(true)
             .takes_value(true)
             .min_values(2)
