@@ -269,7 +269,7 @@ dependencies = [
 [[package]]
 name = "tiltak"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/tiltak#0f95defcecd7467a8e1663ca62114d34e6f6d11c"
+source = "git+https://github.com/MortenLohne/tiltak#e0ea8fe829f46beca55e02dfb8202bf2c835fc5b"
 dependencies = [
  "arrayvec",
  "board-game-traits",
