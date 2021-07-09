@@ -11,6 +11,12 @@ Tak Engine Interface is a protocol based on [Universal Chess Interface](https://
 * Additionally, `teinewgame` *requires* the GUI to send a size parameter. So `teinewgame 5` for size 5.  
 * Move and position notations are obviously different. [Portable Tak Notation](https://www.reddit.com/r/Tak/wiki/portable_tak_notation) and [Tak Position System](https://www.reddit.com/r/Tak/wiki/tak_positional_system) are used, respectively.
 
+**Engines with TEI support:**
+* [Tiltak](https://github.com/MortenLohne/tiltak)
+* [Taktician](https://github.com/nelhage/taktician)
+* [Takbag](https://github.com/Allybag/takbag) 
+* [Ctak](https://git.sr.ht/~tslil/ctak) (Partial support)
+
 ## Build
 
 Building the project from source requires the Rust compiler and Cargo (Rust's package manager) installed, both included in the [Rust downloads.](https://www.rust-lang.org/tools/install)
