@@ -35,8 +35,8 @@ This command will automatically fetch and build dependencies. The resulting bina
 
 Run `racetrack --help` to see a full list of options.
 
-Play two games between engine1 and engine2, with 60 seconds each for each game:
+To play two games between Tiltak and Taktician, with 60 seconds each for each game:
 
 ````
-racetrack --engine engine1 engine2 --games 2 --tc 60
+racetrack --engine tiltak taktician --engine2-args tei --games 2 --tc 60
 ````
