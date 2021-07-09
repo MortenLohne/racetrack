@@ -40,3 +40,10 @@ To play two games between Tiltak and Taktician, with 60 seconds each for each ga
 ````
 racetrack --engine tiltak taktician --engine2-args tei --games 2 --tc 60
 ````
+
+## Notes for engine developers
+
+* Use the `--log` argument to print a full log of TEI communications for debugging.
+* Racetrack uses two non-standard rules: Games are adjudicated as drawn if the exact same position is reached three times (Identical to the rule in chess), and if a game exceeds 100 moves.
+* If an engine plays an illegal move or crashes, the game is ruled as a loss, but the tournament continues.
+* Engines are not ordinarily re-started between games, except for after crashes.
