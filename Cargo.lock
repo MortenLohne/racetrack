@@ -42,9 +42,9 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "board-game-traits"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57ca22f9999ab8c9b5159210f7144b199229ae2e76eef23d683e2f856844dccf"
+checksum = "2f142875a8746cee0aec9350872730b3960c2df6d43766882d85827a1938b12e"
 
 [[package]]
 name = "bufstream"
