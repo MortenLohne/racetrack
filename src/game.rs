@@ -97,18 +97,11 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 if let Err(err) = read_result {
                     if err.kind() == io::ErrorKind::UnexpectedEof {
                         warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), self.round_number);
-                        let loop_result = match position.side_to_move() {
-                            Color::White => (
-                                Some(GameResult::BlackWin),
-                                "White disconnected or crashed".to_string(),
-                            ),
-                            Color::Black => (
-                                Some(GameResult::WhiteWin),
-                                "Black disconnected or crashed".to_string(),
-                            ),
-                        };
                         engine_to_move.restart()?;
-                        break 'gameloop loop_result;
+                        break 'gameloop (
+                            Some(GameResult::win_by(!position.side_to_move())),
+                            format!("{} disconnected or crashed", position.side_to_move()),
+                        );
                     } else {
                         error!(
                             "Fatal io error from {} during game {}",
