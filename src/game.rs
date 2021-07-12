@@ -128,45 +128,44 @@ impl<B: PgnPosition> ScheduledGame<B> {
                     }
                 }
                 if input.starts_with("bestmove") {
-                    let move_string = input.split_whitespace().nth(1).unwrap();
-                    let mv = position.move_from_lan(move_string).unwrap();
-                    let mut legal_moves = vec![];
-                    position.generate_moves(&mut legal_moves);
-                    // Check that the move is legal
-                    if !legal_moves.contains(&mv) {
-                        match position.side_to_move() {
-                            Color::White => {
-                                break 'gameloop (
-                                    Some(GameResult::BlackWin),
-                                    "White made an illegal move".to_string(),
-                                )
-                            }
-                            Color::Black => {
-                                break 'gameloop (
-                                    Some(GameResult::WhiteWin),
-                                    "Black made an illegal move".to_string(),
-                                )
-                            }
+                    if let Some(mv) = input
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|s| position.move_from_lan(s).ok())
+                    {
+                        let mut legal_moves = vec![];
+                        position.generate_moves(&mut legal_moves);
+                        // Check that the move is legal
+                        if !legal_moves.contains(&mv) {
+                            break 'gameloop (
+                                Some(GameResult::win_by(!position.side_to_move())),
+                                format!("{} made an illegal move", position.side_to_move()),
+                            );
                         }
-                    }
-                    position.do_move(mv.clone());
+                        position.do_move(mv.clone());
 
-                    let score_string = match last_uci_info {
-                        Some(uci_info) => format!(
-                            "{}{:.2}/{} {:.2}s",
-                            if uci_info.cp_score > 0 { "+" } else { "" },
-                            uci_info.cp_score as f64 / 100.0,
-                            uci_info.depth,
-                            start_time_for_move.elapsed().as_secs_f32(),
-                        ),
-                        None => String::new(),
-                    };
-                    moves.push(PtnMove {
-                        mv,
-                        annotations: vec![],
-                        comment: score_string,
-                    });
-                    break;
+                        let score_string = match last_uci_info {
+                            Some(uci_info) => format!(
+                                "{}{:.2}/{} {:.2}s",
+                                if uci_info.cp_score > 0 { "+" } else { "" },
+                                uci_info.cp_score as f64 / 100.0,
+                                uci_info.depth,
+                                start_time_for_move.elapsed().as_secs_f32(),
+                            ),
+                            None => String::new(),
+                        };
+                        moves.push(PtnMove {
+                            mv,
+                            annotations: vec![],
+                            comment: score_string,
+                        });
+                        break;
+                    } else {
+                        break 'gameloop (
+                            Some(GameResult::win_by(!position.side_to_move())),
+                            format!("{} sent a malformed move", position.side_to_move()),
+                        );
+                    }
                 }
             }
             let time_taken = start_time_for_move.elapsed();
