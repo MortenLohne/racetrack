@@ -41,7 +41,7 @@ fn main() -> Result<()> {
     };
 
     if let Some(log_file_name) = &cli_args.log_file_name.as_ref() {
-        setup_logger(&log_file_name).map_err(|err| match err {
+        setup_logger(log_file_name).map_err(|err| match err {
             InitError::Io(io_err) => io_err,
             InitError::SetLoggerError(_) => panic!("Logger already initialized"),
         })?;

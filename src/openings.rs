@@ -17,7 +17,7 @@ pub fn openings_from_file<const S: usize>(path: &str) -> io::Result<Vec<Vec<Move
         let mut position = <Position<S>>::start_position();
         let mut moves = vec![];
         for mv_string in line.split_whitespace() {
-            let mv = position.move_from_san(&mv_string).unwrap_or_else(|err| {
+            let mv = position.move_from_san(mv_string).unwrap_or_else(|err| {
                 exit_with_error(&format!(
                     "Opening book contained invalid opening \"{}\": {}",
                     line, err
