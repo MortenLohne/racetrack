@@ -105,7 +105,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
         time: cli_args.time,
         increment: cli_args.increment,
         openings,
-        num_minimatches: (cli_args.games + 1) / 2,
+        num_games: cli_args.games,
         pgn_writer: Mutex::new(pgnout),
     };
 

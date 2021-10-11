@@ -15,7 +15,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub concurrency: usize,
     pub time: Duration,
     pub increment: Duration,
-    pub num_minimatches: usize,
+    pub num_games: usize,
     pub openings: Vec<Vec<B::Move>>,
     pub pgn_writer: Mutex<PgnWriter<B>>,
 }
@@ -24,7 +24,7 @@ impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Concurrency: {}", self.concurrency)?;
         writeln!(f, "Total time: {:.1}s", self.time.as_secs_f32())?;
-        writeln!(f, "num_minimatches: {}", self.num_minimatches)?;
+        writeln!(f, "num_games: {}", self.num_games)?;
         Ok(())
     }
 }
@@ -50,8 +50,7 @@ where
     B::Move: Send,
 {
     pub fn new_head_to_head(settings: TournamentSettings<B>) -> Self {
-        let num_games = settings.num_minimatches * 2;
-        let scheduled_games = (0..num_games)
+        let scheduled_games = (0..settings.num_games)
             .map(|round_number| ScheduledGame {
                 round_number,
                 opening: settings.openings[(round_number / 2) % settings.openings.len()].clone(),
@@ -68,7 +67,7 @@ where
                 scheduled_games,
                 next_game_id: 0,
             }),
-            finished_games: Mutex::new(vec![None; num_games]),
+            finished_games: Mutex::new(vec![None; settings.num_games]),
             pgn_writer: settings.pgn_writer,
         }
     }
