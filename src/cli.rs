@@ -1,6 +1,7 @@
 use crate::uci::parser;
 use clap::{App, Arg};
 use std::time::Duration;
+use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliOptions {
@@ -14,6 +15,7 @@ pub struct CliOptions {
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
     pub log_file_name: Option<String>,
+    pub komi: Komi,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -101,6 +103,14 @@ pub fn parse_cli_arguments() -> CliOptions {
                 .help("Name of debug logfile. If not set, no debug log will be written.")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("komi")
+                .long("komi")
+                .value_name("0")
+                .help("Play with komi, if the engines support it.")
+                .takes_value(true)
+                .default_value("0"),
+        )
         .get_matches();
 
     let (time, increment) =
@@ -128,5 +138,6 @@ pub fn parse_cli_arguments() -> CliOptions {
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
         log_file_name: matches.value_of("log").map(|s| s.to_string()),
+        komi: matches.value_of("komi").unwrap().parse().unwrap(),
     }
 }

@@ -1,4 +1,5 @@
 use crate::uci::parser::parse_option;
+use crate::uci::UciOption;
 use log::{debug, info, warn};
 use std::io;
 use std::io::Result;
@@ -12,6 +13,7 @@ use std::{env, thread};
 pub struct EngineBuilder {
     pub path: String,
     pub args: Option<String>,
+    pub desired_uci_options: Vec<(String, String)>,
 }
 
 impl EngineBuilder {
@@ -44,11 +46,11 @@ impl EngineBuilder {
             stdin,
             name: self.path.to_string(),
             builder: self.clone(),
+            options: vec![],
         };
 
         engine.uci_write_line("tei")?;
 
-        let mut options = vec![];
         loop {
             let input = engine.uci_read_line()?;
             match input.split_whitespace().next() {
@@ -56,18 +58,9 @@ impl EngineBuilder {
                     break;
                 }
                 Some("option") => {
-                    options.push(parse_option(&input).unwrap()); // TODO: Handle error
+                    engine.options.push(parse_option(&input).unwrap()); // TODO: Handle error
                 }
                 s => info!("Unexpected message \"{}\", ignoring", s.unwrap_or_default()),
-            }
-        }
-
-        engine.uci_write_line("isready")?;
-
-        loop {
-            let input = engine.uci_read_line()?;
-            if input.trim() == "readyok" {
-                break;
             }
         }
         Ok(engine)
@@ -80,6 +73,7 @@ pub struct Engine {
     stdin: ChildStdin,
     name: String,
     builder: EngineBuilder,
+    options: Vec<UciOption>,
 }
 
 impl Engine {
@@ -107,6 +101,50 @@ impl Engine {
         } else {
             debug!("< {}: {}", self.name, input.trim());
             Ok(input)
+        }
+    }
+
+    pub fn do_isready_sync(&mut self) -> Result<()> {
+        self.uci_write_line("isready")?;
+
+        loop {
+            let input = self.uci_read_line()?;
+            if input.trim() == "readyok" {
+                return Ok(());
+            }
+        }
+    }
+
+    pub fn support_options_from_builder(&mut self) -> bool {
+        self.builder
+            .desired_uci_options
+            .iter()
+            .all(|(name, value)| self.supports_option_value(name, value))
+    }
+
+    pub fn set_options_from_builder(&mut self) -> Result<()> {
+        for (name, value) in self.builder.desired_uci_options.clone() {
+            self.set_option(&name, &value)?;
+        }
+        self.do_isready_sync()
+    }
+
+    pub fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
+        self.options
+            .iter_mut()
+            .find(|option| option.name == name)
+            .unwrap()
+            .option_type
+            .set_value(value);
+
+        self.uci_write_line(&format!("setoption name {} value {}", name, value))
+    }
+
+    pub fn supports_option_value(&self, name: &str, value: &str) -> bool {
+        if let Some(option) = self.options.iter().find(|option| option.name == name) {
+            option.option_type.value_is_supported(value)
+        } else {
+            false
         }
     }
 

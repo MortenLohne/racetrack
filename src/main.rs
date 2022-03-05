@@ -9,7 +9,7 @@ use fern::InitError;
 use log::error;
 use std::fs;
 use std::sync::Mutex;
-use tiltak::position::{Move, Position};
+use tiltak::position::{Komi, Move, Position};
 
 mod cli;
 mod engine;
@@ -77,6 +77,10 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
 }
 
 fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
+    let mut desired_uci_options = vec![];
+    if cli_args.komi != Komi::default() {
+        desired_uci_options.push(("Komi".to_string(), cli_args.komi.half_komi().to_string()));
+    }
     let engine_builders: Vec<EngineBuilder> = cli_args
         .engine_paths
         .iter()
@@ -84,6 +88,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
         .map(|(path, args)| EngineBuilder {
             path: path.to_string(),
             args: args.clone(),
+            desired_uci_options: desired_uci_options.clone(),
         })
         .collect();
 

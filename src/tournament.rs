@@ -72,6 +72,33 @@ where
         }
     }
 
+    pub fn initialize_with_options_or_exit(builder: &EngineBuilder) -> Engine {
+        let mut engine = match builder.init() {
+            Ok(engine) => engine,
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied => {
+                    exit_with_error(&format!(
+                        "Failed to start engine \"{}\", caused by: {}",
+                        builder.path, err
+                    ))
+                }
+                _ => exit_with_error(&format!(
+                    "Error while initializing \"{}\", the engine may have crashed. Caused by: {}",
+                    builder.path, err
+                )),
+            },
+        };
+        if engine.support_options_from_builder() {
+            engine.set_options_from_builder().unwrap();
+        } else {
+            exit_with_error(&format!(
+                "Engine \"{}\" does not support given options",
+                builder.path,
+            ));
+        }
+        engine
+    }
+
     pub fn play(self, threads: usize, engine_builders: &[EngineBuilder]) -> Vec<Game<B>> {
         let engine_names: Vec<String> = engine_builders
             .iter()
@@ -86,19 +113,7 @@ where
                 id,
                 engines: engine_builders
                     .iter()
-                    .map(|builder| {
-                        match builder.init() {
-                            Ok(engine) => engine,
-                            Err(err) => {
-                                match err.kind() {
-                                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied =>
-                                        exit_with_error(&format!("Failed to start engine \"{}\", caused by: {}",
-                                               builder.path, err)),
-                                    _ => exit_with_error(&format!("Error while initializing \"{}\", the engine may have crashed. Caused by: {}", builder.path, err))
-                                }
-                            }
-                        }
-                    })
+                    .map(|builder| Self::initialize_with_options_or_exit(builder))
                     .collect(),
             })
             .collect();

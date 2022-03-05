@@ -73,6 +73,34 @@ pub enum UciOptionType {
     String(String), // Contains the current value
 }
 
+impl UciOptionType {
+    pub fn value_is_supported(&self, value: &str) -> bool {
+        match self {
+            UciOptionType::Check(_) => value == "true" || value == "false",
+            UciOptionType::Spin(_, min, max) => {
+                if let Ok(int_value) = value.parse::<i64>() {
+                    int_value >= *min && int_value <= *max
+                } else {
+                    false
+                }
+            }
+            UciOptionType::Combo(_, possible_values) => possible_values.iter().any(|e| e == value),
+            UciOptionType::Button => false,
+            UciOptionType::String(_) => true,
+        }
+    }
+
+    pub fn set_value(&mut self, value: &str) {
+        match self {
+            UciOptionType::Check(val) => *val = value.parse().unwrap(),
+            UciOptionType::Spin(val, _, _) => *val = value.parse().unwrap(),
+            UciOptionType::Combo(val, _) => *val = value.to_string(),
+            UciOptionType::Button => (),
+            UciOptionType::String(val) => *val = value.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct UciInfo<B: Position> {
     pub depth: u16,
