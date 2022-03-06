@@ -81,6 +81,10 @@ impl Engine {
         &self.name
     }
 
+    pub fn builder(&self) -> &EngineBuilder {
+        &self.builder
+    }
+
     pub fn uci_read_line(&mut self) -> Result<String> {
         self.read_line()
     }

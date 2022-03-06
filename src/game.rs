@@ -206,6 +206,17 @@ impl<B: PgnPosition> ScheduledGame<B> {
             ),
         ];
 
+        if let Some((_, komi_value_string)) = white
+            .builder()
+            .desired_uci_options
+            .iter()
+            .find(|(komi_string, _value)| komi_string == "Komi")
+        {
+            if komi_value_string != "0" {
+                tags.push(("Komi".to_string(), komi_value_string.clone()))
+            }
+        }
+
         if !result_description.is_empty() {
             tags.push(("Termination".to_string(), result_description));
         }
