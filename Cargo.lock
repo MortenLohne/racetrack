@@ -246,7 +246,7 @@ dependencies = [
 [[package]]
 name = "tiltak"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/tiltak?branch=f-racetrack-komi#010edfc1ac0427618717262bf0f06bab4e582cf0"
+source = "git+https://github.com/MortenLohne/tiltak?branch=f-racetrack-komi#759d0bdf5dd2fc5ea5ac607964ec8da611111244"
 dependencies = [
  "arrayvec",
  "board-game-traits",

@@ -1,7 +1,7 @@
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
-use board_game_traits::{Color, GameResult};
+use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
@@ -19,6 +19,13 @@ pub struct ScheduledGame<B: PgnPosition> {
     pub time: Duration,
     pub increment: Duration,
     pub size: usize,
+}
+
+fn forfeit_win_str(color: Color) -> &'static str {
+    match color {
+        Color::White => "1-0",
+        Color::Black => "0-1",
+    }
 }
 
 impl<B: PgnPosition> ScheduledGame<B> {
@@ -64,7 +71,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 );
             }
 
-            let result = position.game_result();
+            let result = position.pgn_game_result();
             if result.is_some() {
                 break (result, String::new());
             }
@@ -103,7 +110,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), self.round_number);
                         engine_to_move.restart()?;
                         break 'gameloop (
-                            Some(GameResult::win_by(!position.side_to_move())),
+                            Some(forfeit_win_str(!position.side_to_move())),
                             format!("{} disconnected or crashed", position.side_to_move()),
                         );
                     } else {
@@ -135,7 +142,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         // Check that the move is legal
                         if !legal_moves.contains(&mv) {
                             break 'gameloop (
-                                Some(GameResult::win_by(!position.side_to_move())),
+                                Some(forfeit_win_str(!position.side_to_move())),
                                 format!("{} made an illegal move", position.side_to_move()),
                             );
                         }
@@ -159,7 +166,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         break;
                     } else {
                         break 'gameloop (
-                            Some(GameResult::win_by(!position.side_to_move())),
+                            Some(forfeit_win_str(!position.side_to_move())),
                             format!("{} sent a malformed move", position.side_to_move()),
                         );
                     }
@@ -172,7 +179,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         white_time -= time_taken;
                         white_time += self.increment;
                     } else {
-                        break (Some(GameResult::BlackWin), "Black wins on time".to_string());
+                        break (Some("0-1"), "Black wins on time".to_string());
                     }
                 }
                 Color::Black => {
@@ -180,7 +187,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                         black_time -= time_taken;
                         black_time += self.increment;
                     } else {
-                        break (Some(GameResult::WhiteWin), "White wins on time".to_string());
+                        break (Some("1-0"), "White wins on time".to_string());
                     }
                 }
             }
@@ -198,6 +205,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 format!("{}.{:0>2}.{:0>2}", date.year(), date.month(), date.day()),
             ),
         ];
+
         if !result_description.is_empty() {
             tags.push(("Termination".to_string(), result_description));
         }
@@ -205,7 +213,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
         let game = Game {
             start_position: B::start_position(),
             moves,
-            game_result: result,
+            game_result_str: result,
             tags,
         };
         Ok(game)

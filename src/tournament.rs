@@ -208,7 +208,7 @@ where
         {
             match (
                 scheduled_game.white_engine_id == engine1_id,
-                game.game_result,
+                game.game_result(),
             ) {
                 (true, Some(WhiteWin)) => {
                     engine1_wins += 1;
