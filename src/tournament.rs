@@ -12,6 +12,7 @@ use tiltak::ptn::Game;
 
 pub struct TournamentSettings<B: PgnPosition> {
     pub size: usize,
+    pub position_settings: B::Settings,
     pub concurrency: usize,
     pub time: Duration,
     pub increment: Duration,
@@ -39,6 +40,7 @@ struct GamesSchedule<B: PgnPosition> {
 }
 
 pub struct Tournament<B: PgnPosition> {
+    position_settings: B::Settings,
     games_schedule: Mutex<GamesSchedule<B>>,
     finished_games: Mutex<Vec<Option<Game<B>>>>,
     pgn_writer: Mutex<PgnWriter<B>>,
@@ -48,6 +50,7 @@ impl<B> Tournament<B>
 where
     B: PgnPosition + Clone + Send + 'static,
     B::Move: Send,
+    B::Settings: Send + Sync,
 {
     pub fn new_head_to_head(settings: TournamentSettings<B>) -> Self {
         let scheduled_games = (0..settings.num_games)
@@ -63,6 +66,7 @@ where
             .collect();
 
         Tournament {
+            position_settings: settings.position_settings,
             games_schedule: Mutex::new(GamesSchedule {
                 scheduled_games,
                 next_game_id: 0,
@@ -141,7 +145,9 @@ where
                     .spawn(move || {
                         while let Some(scheduled_game) = thread_tournament.next_unplayed_game() {
                             let round_number = scheduled_game.round_number;
-                            let game = scheduled_game.play_game(&mut worker).unwrap();
+                            let game = scheduled_game
+                                .play_game(&mut worker, &thread_tournament.position_settings)
+                                .unwrap();
                             {
                                 let mut finished_games =
                                     thread_tournament.finished_games.lock().unwrap();

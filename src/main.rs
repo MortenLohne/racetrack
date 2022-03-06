@@ -9,7 +9,7 @@ use fern::InitError;
 use log::error;
 use std::fs;
 use std::sync::Mutex;
-use tiltak::position::{Komi, Move, Position};
+use tiltak::position::{Komi, Move, Position, Settings};
 
 mod cli;
 mod engine;
@@ -106,6 +106,9 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
 
     let settings: TournamentSettings<Position<S>> = TournamentSettings {
         size: cli_args.size,
+        position_settings: Settings {
+            komi: cli_args.komi,
+        },
         concurrency: cli_args.concurrency,
         time: cli_args.time,
         increment: cli_args.increment,

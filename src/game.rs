@@ -22,8 +22,12 @@ pub struct ScheduledGame<B: PgnPosition> {
 }
 
 impl<B: PgnPosition> ScheduledGame<B> {
-    pub(crate) fn play_game(self, worker: &mut Worker) -> io::Result<Game<B>> {
-        let mut position = B::start_position();
+    pub(crate) fn play_game(
+        self,
+        worker: &mut Worker,
+        position_settings: &B::Settings,
+    ) -> io::Result<Game<B>> {
+        let mut position = B::start_position_with_settings(position_settings);
         let (mut white, mut black) = worker
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();

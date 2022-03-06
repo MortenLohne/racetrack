@@ -43,8 +43,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 [[package]]
 name = "board-game-traits"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f142875a8746cee0aec9350872730b3960c2df6d43766882d85827a1938b12e"
+source = "git+https://github.com/MortenLohne/board-game-traits?branch=f-settings-type#b87fafd296944890360fb1e8b53ecdc1bc41dc50"
 
 [[package]]
 name = "bufstream"
@@ -165,8 +164,7 @@ dependencies = [
 [[package]]
 name = "pgn-traits"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6323ec81aab968b56d11ccb229ae2bf25c981007de7e4b72ead97b983847d858"
+source = "git+https://github.com/MortenLohne/pgn-traits?branch=f-settings-type#6a883bed99eb059beb41a80563b424c00025001d"
 dependencies = [
  "board-game-traits",
 ]
@@ -248,7 +246,7 @@ dependencies = [
 [[package]]
 name = "tiltak"
 version = "0.1.0"
-source = "git+https://github.com/MortenLohne/tiltak#7cf0b7cac5b7df97537d8b6299f86a7ec528cd96"
+source = "git+https://github.com/MortenLohne/tiltak?branch=f-racetrack-komi#010edfc1ac0427618717262bf0f06bab4e582cf0"
 dependencies = [
  "arrayvec",
  "board-game-traits",
