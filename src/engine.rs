@@ -119,7 +119,7 @@ impl Engine {
         }
     }
 
-    pub fn support_options_from_builder(&mut self) -> bool {
+    pub fn supports_options_from_builder(&mut self) -> bool {
         self.builder
             .desired_uci_options
             .iter()
