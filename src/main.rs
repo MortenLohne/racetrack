@@ -80,7 +80,7 @@ fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
     let mut desired_uci_options = vec![];
     if cli_args.komi != Komi::default() {
         desired_uci_options.push((
-            "Half Komi".to_string(),
+            "HalfKomi".to_string(),
             cli_args.komi.half_komi().to_string(),
         ));
     }

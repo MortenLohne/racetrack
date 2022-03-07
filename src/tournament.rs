@@ -99,8 +99,8 @@ where
             if !builder
                 .desired_uci_options
                 .iter()
-                .any(|(option, _)| option == "Half Komi")
-                && !engine.supports_option_value("Half Komi", "0")
+                .any(|(option, _)| option == "HalfKomi")
+                && !engine.supports_option_value("HalfKomi", "0")
             {
                 exit_with_error(&format!(
                     "Engine \"{}\" does not support 0 komi",

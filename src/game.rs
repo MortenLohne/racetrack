@@ -222,7 +222,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
             .builder()
             .desired_uci_options
             .iter()
-            .find(|(komi_string, _value)| komi_string == "Half Komi")
+            .find(|(komi_string, _value)| komi_string == "HalfKomi")
         {
             if komi_value_string != "0" {
                 tags.push((
