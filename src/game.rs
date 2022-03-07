@@ -206,14 +206,15 @@ impl<B: PgnPosition> ScheduledGame<B> {
             ),
         ];
 
+        // Write Komi tag for non-zero komi
         if let Some((_, komi_value_string)) = white
             .builder()
             .desired_uci_options
             .iter()
-            .find(|(komi_string, _value)| komi_string == "Komi")
+            .find(|(komi_string, _value)| komi_string == "Half Komi")
         {
             if komi_value_string != "0" {
-                tags.push(("Komi".to_string(), komi_value_string.clone()))
+                tags.push(("Komi".to_string(), komi_value_string.parse::<i32>().unwrap().to_string() ))
             }
         }
 
