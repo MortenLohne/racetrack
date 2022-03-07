@@ -8,6 +8,7 @@ use pgn_traits::PgnPosition;
 use std::fmt::Write;
 use std::io;
 use std::time::{Duration, Instant};
+use tiltak::position::Komi;
 use tiltak::ptn::{Game, PtnMove};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -196,6 +197,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
         let date = Local::today();
 
         let mut tags = vec![
+            ("Site".to_string(), "Racetrack".to_string()),
             ("Player1".to_string(), white.name().to_string()),
             ("Player2".to_string(), black.name().to_string()),
             ("Round".to_string(), self.round_number.to_string()),
@@ -203,6 +205,15 @@ impl<B: PgnPosition> ScheduledGame<B> {
             (
                 "Date".to_string(),
                 format!("{}.{:0>2}.{:0>2}", date.year(), date.month(), date.day()),
+            ),
+            (
+                "Clock".to_string(),
+                format!(
+                    "{}:{} +{:.1}",
+                    self.time.as_secs() / 60,
+                    self.time.as_secs() % 60,
+                    self.increment.as_secs_f32()
+                ),
             ),
         ];
 
@@ -214,7 +225,15 @@ impl<B: PgnPosition> ScheduledGame<B> {
             .find(|(komi_string, _value)| komi_string == "Half Komi")
         {
             if komi_value_string != "0" {
-                tags.push(("Komi".to_string(), komi_value_string.parse::<i32>().unwrap().to_string() ))
+                tags.push((
+                    "Komi".to_string(),
+                    komi_value_string
+                        .parse()
+                        .ok()
+                        .and_then(Komi::from_half_komi)
+                        .unwrap()
+                        .to_string(),
+                ))
             }
         }
 

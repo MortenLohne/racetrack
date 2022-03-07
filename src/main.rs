@@ -79,7 +79,10 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
 fn run_match<const S: usize>(openings: Vec<Vec<Move>>, cli_args: CliOptions) {
     let mut desired_uci_options = vec![];
     if cli_args.komi != Komi::default() {
-        desired_uci_options.push(("Half Komi".to_string(), cli_args.komi.half_komi().to_string()));
+        desired_uci_options.push((
+            "Half Komi".to_string(),
+            cli_args.komi.half_komi().to_string(),
+        ));
     }
     let engine_builders: Vec<EngineBuilder> = cli_args
         .engine_paths
