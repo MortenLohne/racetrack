@@ -11,9 +11,9 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-board-game-traits = { git = "https://github.com/MortenLohne/board-game-traits", branch = "f-settings-type" }
-pgn-traits = { git = "https://github.com/MortenLohne/pgn-traits", branch = "f-settings-type" }
-tiltak = { git = "https://github.com/MortenLohne/tiltak", branch = "f-racetrack-komi" }
+board-game-traits = "0.3.0"
+pgn-traits = "0.3.0"
+tiltak = { git = "https://github.com/MortenLohne/tiltak" }
 clap = "2.33"
 chrono = "0.4.19"
 log = "0.4"
