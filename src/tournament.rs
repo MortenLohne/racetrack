@@ -92,21 +92,9 @@ where
                 )),
             },
         };
+
         if engine.supports_options_from_builder() {
             engine.set_options_from_builder().unwrap();
-            // If we play with 0 komi, check that it is not
-            // explicitly unsupported by the engine
-            if !builder
-                .desired_uci_options
-                .iter()
-                .any(|(option, _)| option == "HalfKomi")
-                && !engine.supports_option_value("HalfKomi", "0")
-            {
-                exit_with_error(&format!(
-                    "Engine \"{}\" does not support 0 komi",
-                    engine.name(),
-                ));
-            }
         } else {
             exit_with_error(&format!(
                 "Engine \"{}\" does not support given options",

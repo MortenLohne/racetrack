@@ -90,6 +90,16 @@ impl UciOptionType {
         }
     }
 
+    pub fn get_value(&self) -> String {
+        match self {
+            UciOptionType::Check(val) => val.to_string(),
+            UciOptionType::Spin(val, _, _) => val.to_string(),
+            UciOptionType::Combo(val, _) => val.to_string(),
+            UciOptionType::Button => String::new(),
+            UciOptionType::String(val) => val.clone(),
+        }
+    }
+
     pub fn set_value(&mut self, value: &str) {
         match self {
             UciOptionType::Check(val) => *val = value.parse().unwrap(),

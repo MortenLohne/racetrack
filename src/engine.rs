@@ -1,5 +1,5 @@
 use crate::uci::parser::parse_option;
-use crate::uci::UciOption;
+use crate::uci::{UciOption, UciOptionType};
 use log::{debug, info, warn};
 use std::io;
 use std::io::Result;
@@ -63,6 +63,21 @@ impl EngineBuilder {
                 s => info!("Unexpected message \"{}\", ignoring", s.unwrap_or_default()),
             }
         }
+
+        // If engine has no HalfKomi option, assume it only supports 0 komi
+        // Options at their default value are never sent to the engines
+        if !engine
+            .options
+            .iter()
+            .any(|option| option.name == "HalfKomi")
+        {
+            println!("{} implicitly supports 0 komi", engine.name());
+            engine.options.push(UciOption {
+                name: "HalfKomi".to_string(),
+                option_type: UciOptionType::Spin(0, 0, 0),
+            })
+        }
+
         Ok(engine)
     }
 }
@@ -134,14 +149,22 @@ impl Engine {
     }
 
     pub fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
-        self.options
+        let option = &mut self
+            .options
             .iter_mut()
             .find(|option| option.name == name)
             .unwrap()
-            .option_type
-            .set_value(value);
+            .option_type;
 
-        self.uci_write_line(&format!("setoption name {} value {}", name, value))
+        // If the option already has the desired value, do nothing
+        // This is important, since all engines implicitly support HalfKomi=0,
+        // but we don't want to actually send that
+        if option.get_value() != value {
+            option.set_value(value);
+            self.uci_write_line(&format!("setoption name {} value {}", name, value))
+        } else {
+            Ok(())
+        }
     }
 
     pub fn supports_option_value(&self, name: &str, value: &str) -> bool {
