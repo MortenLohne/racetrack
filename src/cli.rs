@@ -95,21 +95,22 @@ pub fn parse_cli_arguments() -> CliOptions {
             .value_name("args")
             .allow_hyphen_values(true)
         )
-        .arg(
-            Arg::with_name("log")
-                .short("l")
-                .long("log")
-                .value_name("racetrack.log")
-                .help("Name of debug logfile. If not set, no debug log will be written.")
-                .takes_value(true),
+        .arg(Arg::with_name("log")
+            .short("l")
+            .long("log")
+            .value_name("racetrack.log")
+            .help("Name of debug logfile. If not set, no debug log will be written.")
+            .takes_value(true),
         )
-        .arg(
-            Arg::with_name("komi")
-                .long("komi")
-                .value_name("0")
-                .help("Play with komi, if the engines support it.")
-                .takes_value(true)
-                .default_value("0"),
+        .arg(Arg::with_name("komi")
+            .long("komi")
+            .help("Play with komi, if the engines support it.")
+            .takes_value(true)
+            .allow_hyphen_values(true)
+            .default_value("0")
+            .validator(|input| {
+                input.parse::<Komi>().map(|_| ())
+            }),
         )
         .get_matches();
 
