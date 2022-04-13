@@ -161,7 +161,7 @@ where
                             thread_tournament.print_score(&engine_names);
                         }
                         for engine in worker.engines.iter_mut() {
-                            let _ = engine.uci_write_line("quit");
+                            engine.shutdown().unwrap();
                         }
                     })
                     .unwrap()

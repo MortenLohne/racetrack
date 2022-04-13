@@ -186,14 +186,14 @@ impl Engine {
     pub fn shutdown(&mut self) -> Result<ExitStatus> {
         info!("Shutting down {}", self.name);
         if let Some(exit_status) = self.child.try_wait()? {
-            info!("{} has already exited", self.name);
+            info!("{} has already exited, {}", self.name, exit_status);
             return Ok(exit_status);
         }
         self.uci_write_line("quit")?;
         thread::sleep(Duration::from_secs(1));
         match self.child.try_wait()? {
             Some(exit_status) => {
-                info!("{} shut down successfully", self.name);
+                info!("{} exited, {}", self.name, exit_status);
                 Ok(exit_status)
             }
             None => {
@@ -201,7 +201,7 @@ impl Engine {
                 self.child.kill()?;
                 thread::sleep(Duration::from_secs(1));
                 let result = self.child.wait()?;
-                warn!("{} killed successfully", self.name);
+                warn!("{} killed successfully, {}", self.name, result);
                 Ok(result)
             }
         }
