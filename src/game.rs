@@ -1,3 +1,4 @@
+use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
@@ -14,7 +15,7 @@ use tiltak::ptn::{Game, PtnMove};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScheduledGame<B: PgnPosition> {
     pub round_number: usize,
-    pub opening: Vec<B::Move>,
+    pub opening: Opening<B>,
     pub white_engine_id: EngineId,
     pub black_engine_id: EngineId,
     pub time: Duration,
@@ -35,20 +36,36 @@ impl<B: PgnPosition> ScheduledGame<B> {
         worker: &mut Worker,
         position_settings: &B::Settings,
     ) -> io::Result<Game<B>> {
-        let mut position = B::start_position_with_settings(position_settings);
+        let (mut position, mut moves, start_string) = match self.opening {
+            Opening::Start(ref moves) => (
+                B::start_position_with_settings(position_settings),
+                moves
+                    .iter()
+                    .map(|mv| PtnMove {
+                        mv: mv.clone(),
+                        annotations: vec![],
+                        comment: String::new(),
+                    })
+                    .collect::<Vec<_>>(),
+                "startpos".to_string(),
+            ),
+            Opening::FromFen(ref fen, ref moves) => (
+                B::from_fen_with_settings(&fen, position_settings).unwrap(),
+                moves
+                    .iter()
+                    .map(|mv| PtnMove {
+                        mv: mv.clone(),
+                        annotations: vec![],
+                        comment: String::new(),
+                    })
+                    .collect(),
+                format!("tps {}", fen),
+            ), // We should have already checked that the starting fen is valid, so unwrap should be okay
+        };
         let (mut white, mut black) = worker
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();
 
-        let mut moves: Vec<PtnMove<B::Move>> = self
-            .opening
-            .iter()
-            .map(|mv| PtnMove {
-                mv: mv.clone(),
-                annotations: vec![],
-                comment: String::new(),
-            })
-            .collect();
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
         }
@@ -82,7 +99,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
             };
 
             let mut position_string = String::new();
-            write!(position_string, "position startpos moves ").unwrap();
+            write!(position_string, "position {} moves ", start_string).unwrap();
             let mut position_board = B::start_position();
             for PtnMove { mv, .. } in moves.iter() {
                 write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
@@ -242,7 +259,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
         }
 
         let game = Game {
-            start_position: B::start_position(),
+            start_position: self.opening.start_position(),
             moves,
             game_result_str: result,
             tags,
