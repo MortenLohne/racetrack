@@ -1,6 +1,7 @@
 use crate::engine::{Engine, EngineBuilder};
 use crate::exit_with_error;
 use crate::game::ScheduledGame;
+use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
@@ -17,7 +18,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub time: Duration,
     pub increment: Duration,
     pub num_games: usize,
-    pub openings: Vec<Vec<B::Move>>,
+    pub openings: Vec<Opening<B>>,
     pub pgn_writer: Mutex<PgnWriter<B>>,
 }
 
