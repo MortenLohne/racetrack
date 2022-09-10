@@ -1,4 +1,7 @@
-use crate::uci::parser;
+use crate::{
+    openings::{self, BookFormat},
+    uci::parser,
+};
 use clap::{App, Arg};
 use std::time::Duration;
 use tiltak::position::Komi;
@@ -14,6 +17,7 @@ pub struct CliOptions {
     pub engine_args: [Option<String>; 2],
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
+    pub book_format: openings::BookFormat,
     pub log_file_name: Option<String>,
     pub komi: Komi,
 }
@@ -76,6 +80,12 @@ pub fn parse_cli_arguments() -> CliOptions {
             .long("book")
             .takes_value(true)
             .value_name("file.txt"))
+        .arg(Arg::with_name("book-format")
+            .long("--book-format")
+            .help("Opening book format. The included books are in the default 'move-list' format.")
+            .takes_value(true)
+            .default_value("move-list")
+            .possible_values(&["move-list", "tps", "ptn"]))
         .arg(Arg::with_name("tc")
             .help("Time control for each game, in seconds. Format is time+increment, where the increment is optional.")
             .long("tc")
@@ -122,6 +132,13 @@ pub fn parse_cli_arguments() -> CliOptions {
         .unwrap()
         .collect::<Vec<_>>();
 
+    let book_format = match matches.value_of("book-format").unwrap() {
+        "move-list" => BookFormat::MoveList,
+        "tps" => BookFormat::Fen,
+        "ptn" => BookFormat::Pgn,
+        s => panic!("Unsupported book format {}", s),
+    };
+
     CliOptions {
         size: matches.value_of("size").unwrap().parse().unwrap(),
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
@@ -138,6 +155,7 @@ pub fn parse_cli_arguments() -> CliOptions {
         ],
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
+        book_format,
         log_file_name: matches.value_of("log").map(|s| s.to_string()),
         komi: matches.value_of("komi").unwrap().parse().unwrap(),
     }

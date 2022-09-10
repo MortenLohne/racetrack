@@ -1,3 +1,4 @@
+use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
@@ -14,7 +15,7 @@ use tiltak::ptn::{Game, PtnMove};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScheduledGame<B: PgnPosition> {
     pub round_number: usize,
-    pub opening: Vec<B::Move>,
+    pub opening: Opening<B>,
     pub white_engine_id: EngineId,
     pub black_engine_id: EngineId,
     pub time: Duration,
@@ -29,19 +30,23 @@ fn forfeit_win_str(color: Color) -> &'static str {
     }
 }
 
-impl<B: PgnPosition> ScheduledGame<B> {
+impl<B: PgnPosition + Clone> ScheduledGame<B> {
     pub(crate) fn play_game(
         self,
         worker: &mut Worker,
         position_settings: &B::Settings,
     ) -> io::Result<Game<B>> {
-        let mut position = B::start_position_with_settings(position_settings);
+        let mut position =
+            B::from_fen_with_settings(&self.opening.root_position.to_fen(), position_settings)
+                .unwrap();
+
         let (mut white, mut black) = worker
             .get_engines(self.white_engine_id, self.black_engine_id)
             .unwrap();
 
         let mut moves: Vec<PtnMove<B::Move>> = self
             .opening
+            .moves
             .iter()
             .map(|mv| PtnMove {
                 mv: mv.clone(),
@@ -49,9 +54,11 @@ impl<B: PgnPosition> ScheduledGame<B> {
                 comment: String::new(),
             })
             .collect();
+
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
         }
+
         white.uci_write_line(&format!("teinewgame {}", self.size))?;
         white.uci_write_line("isready")?;
         black.uci_write_line(&format!("teinewgame {}", self.size))?;
@@ -82,8 +89,15 @@ impl<B: PgnPosition> ScheduledGame<B> {
             };
 
             let mut position_string = String::new();
-            write!(position_string, "position startpos moves ").unwrap();
-            let mut position_board = B::start_position();
+
+            if self.opening.root_position == B::start_position() {
+                write!(position_string, "position startpos moves ").unwrap();
+            } else {
+                let tps = self.opening.root_position.to_fen();
+                write!(position_string, "position tps {} moves ", tps).unwrap();
+            }
+
+            let mut position_board = self.opening.root_position.clone();
             for PtnMove { mv, .. } in moves.iter() {
                 write!(position_string, "{} ", position_board.move_to_lan(mv)).unwrap();
                 position_board.do_move(mv.clone());
@@ -242,7 +256,7 @@ impl<B: PgnPosition> ScheduledGame<B> {
         }
 
         let game = Game {
-            start_position: B::start_position(),
+            start_position: self.opening.root_position,
             moves,
             game_result_str: result,
             tags,
