@@ -19,6 +19,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub increment: Duration,
     pub num_games: usize,
     pub openings: Vec<Opening<B>>,
+    pub openings_start_index: usize,
     pub pgn_writer: Mutex<PgnWriter<B>>,
 }
 
@@ -57,7 +58,9 @@ where
         let scheduled_games = (0..settings.num_games)
             .map(|round_number| ScheduledGame {
                 round_number,
-                opening: settings.openings[(round_number / 2) % settings.openings.len()].clone(),
+                opening: settings.openings
+                    [(settings.openings_start_index + round_number / 2) % settings.openings.len()]
+                .clone(),
                 white_engine_id: EngineId(round_number % 2),
                 black_engine_id: EngineId((round_number + 1) % 2),
                 time: settings.time,

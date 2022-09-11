@@ -3,7 +3,7 @@ use crate::{
     uci::parser,
 };
 use clap::{App, Arg};
-use std::time::Duration;
+use std::{num::NonZeroUsize, time::Duration};
 use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -18,6 +18,8 @@ pub struct CliOptions {
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
     pub book_format: openings::BookFormat,
+    pub shuffle_book: bool,
+    pub book_start_index: usize,
     pub log_file_name: Option<String>,
     pub komi: Komi,
 }
@@ -84,8 +86,26 @@ pub fn parse_cli_arguments() -> CliOptions {
             .long("--book-format")
             .help("Opening book format. The included books are in the default 'move-list' format.")
             .takes_value(true)
+            .requires("book")
             .default_value("move-list")
             .possible_values(&["move-list", "tps", "ptn"]))
+        .arg(Arg::with_name("book-start")
+            .long("--book-start")
+            .help("Start from the opening with the specified index. Starts at 1.")
+            .takes_value(true)
+            .requires("book")
+            .conflicts_with("shuffle-book")
+            .validator(|input|
+                input.parse::<NonZeroUsize>()
+                    .map(|_| ())
+                    .map_err(|err| err.to_string())
+                )
+            )
+        .arg(Arg::with_name("shuffle-book")
+            .long("--shuffle-book")
+            .help("Shuffle the provided opening book.")
+            .takes_value(false)
+            .requires("book"))
         .arg(Arg::with_name("tc")
             .help("Time control for each game, in seconds. Format is time+increment, where the increment is optional.")
             .long("tc")
@@ -156,6 +176,13 @@ pub fn parse_cli_arguments() -> CliOptions {
         pgnout: matches.value_of("file").map(|s| s.to_string()),
         book_path: matches.value_of("book").map(|s| s.to_string()),
         book_format,
+        shuffle_book: matches.is_present("shuffle-book"),
+        book_start_index: matches
+            .value_of("book-start")
+            .unwrap_or("1")
+            .parse::<usize>()
+            .unwrap()
+            - 1,
         log_file_name: matches.value_of("log").map(|s| s.to_string()),
         komi: matches.value_of("komi").unwrap().parse().unwrap(),
     }

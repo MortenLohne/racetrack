@@ -257,6 +257,7 @@ dependencies = [
  "fern",
  "log",
  "pgn-traits",
+ "rand",
  "tiltak",
 ]
 

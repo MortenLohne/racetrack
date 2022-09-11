@@ -8,6 +8,7 @@ use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
 use log::error;
 use openings::Opening;
+use rand::seq::SliceRandom;
 use std::fs;
 use std::sync::Mutex;
 use tiltak::position::{Position, Settings};
@@ -37,13 +38,17 @@ fn main() -> Result<()> {
 }
 
 pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
-    let openings = match &cli_args.book_path {
+    let mut openings = match &cli_args.book_path {
         Some(path) => {
             println!("Loading opening book");
             openings::openings_from_file::<Position<S>>(path, cli_args.book_format)?
         }
         None => vec![],
     };
+
+    if cli_args.shuffle_book {
+        openings.shuffle(&mut rand::thread_rng());
+    }
 
     if let Some(log_file_name) = &cli_args.log_file_name.as_ref() {
         setup_logger(log_file_name).map_err(|err| match err {
@@ -53,7 +58,6 @@ pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
     }
 
     run_match(openings, cli_args);
-
     Ok(())
 }
 
@@ -112,6 +116,7 @@ fn run_match<const S: usize>(openings: Vec<Opening<Position<S>>>, cli_args: CliO
         time: cli_args.time,
         increment: cli_args.increment,
         openings,
+        openings_start_index: cli_args.book_start_index,
         num_games: cli_args.games,
         pgn_writer: Mutex::new(pgnout),
     };
