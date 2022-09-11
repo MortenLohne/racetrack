@@ -25,8 +25,8 @@ pub struct CliOptions {
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
-    let matches = App::new("Tak match")
-        .version("0.0.1")
+    let matches = App::new("Racetrack")
+        .version("0.2.1")
         .author("Morten Lohne")
         .about("Play a match between two or more Tak engines")
         .arg(
