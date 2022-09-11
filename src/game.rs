@@ -214,7 +214,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             ("Site".to_string(), "Racetrack".to_string()),
             ("Player1".to_string(), white.name().to_string()),
             ("Player2".to_string(), black.name().to_string()),
-            ("Round".to_string(), self.round_number.to_string()),
+            ("Round".to_string(), (self.round_number + 1).to_string()),
             ("Size".to_string(), self.size.to_string()),
             (
                 "Date".to_string(),
