@@ -1,8 +1,9 @@
 use crate::engine::{Engine, EngineBuilder};
-use crate::exit_with_error;
 use crate::game::ScheduledGame;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
+use crate::simulation::MatchScore;
+use crate::{exit_with_error, simulation};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::sync::{Arc, Mutex};
@@ -235,13 +236,30 @@ where
             }
         }
 
+        let score = MatchScore {
+            wins: engine1_wins,
+            draws,
+            losses: engine2_wins,
+        };
+
+        let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
+
+        let lower = full_simulation.result_for_p(0.025);
+        let expected = score.score();
+        let upper = full_simulation.result_for_p(0.975);
+
+        let lower_elo = simulation::to_elo_string(lower);
+        let expected_elo = simulation::to_elo_string(expected);
+        let upper_elo = simulation::to_elo_string(upper);
+
         println!(
-            "{} vs {}: +{}-{}={}. {} white wins, {} black wins.",
+            "{} vs {}: {}, {} elo [{}, {}] (95% confidence). {} white wins, {} black wins.",
             engine_names[0],
             engine_names[1],
-            engine1_wins,
-            engine2_wins,
-            draws,
+            score,
+            expected_elo,
+            lower_elo,
+            upper_elo,
             white_wins,
             black_wins
         );

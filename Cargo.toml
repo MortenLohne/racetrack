@@ -18,4 +18,6 @@ clap = "2.33"
 chrono = { version = "0.4", default-features = false }
 log = "0.4"
 fern = "0.6"
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
+bpci = "0.1.0-beta.7"
+rand_distr = "0.4.3"

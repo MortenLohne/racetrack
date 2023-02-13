@@ -56,6 +56,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f0c0fc76324ee558f1c6239a069c3101d74286eedd7d9b1e307d47b4f039c23"
 
 [[package]]
+name = "bpci"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "552c3faebbf05f0aebf152b9c90d76732ffac8bfead18786aa9ce3c5aae706a7"
+dependencies = [
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "bufstream"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -252,12 +262,14 @@ name = "racetrack"
 version = "0.2.1"
 dependencies = [
  "board-game-traits",
+ "bpci",
  "chrono",
  "clap",
  "fern",
  "log",
  "pgn-traits",
  "rand",
+ "rand_distr",
  "tiltak",
 ]
 
@@ -325,6 +337,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thiserror"
+version = "1.0.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
