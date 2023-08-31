@@ -208,7 +208,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             }
         };
 
-        let date = Local::today();
+        let date = Local::now();
 
         let mut tags = vec![
             ("Site".to_string(), "Racetrack".to_string()),
