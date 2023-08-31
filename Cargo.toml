@@ -14,7 +14,7 @@ path = "src/main.rs"
 board-game-traits = "0.3.0"
 pgn-traits = "0.4.0"
 tiltak = { git = "https://github.com/MortenLohne/tiltak" }
-clap = "3.2"
+clap = "4.4"
 chrono = { version = "0.4", default-features = false }
 log = "0.4"
 fern = "0.6"
