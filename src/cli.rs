@@ -2,8 +2,8 @@ use crate::{
     openings::{self, BookFormat},
     uci::parser,
 };
-use clap::{App, Arg};
-use std::{num::NonZeroUsize, time::Duration};
+use clap::{self, App, Arg};
+use std::{env, ffi::OsString, num::NonZeroUsize, time::Duration};
 use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,6 +25,12 @@ pub struct CliOptions {
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
+    parse_cli_arguments_from(&mut env::args_os()).unwrap_or_else(|err| err.exit())
+}
+
+pub fn parse_cli_arguments_from(
+    itr: impl Iterator<Item = OsString>,
+) -> Result<CliOptions, clap::Error> {
     let matches = App::new("Racetrack")
         .version("0.2.1")
         .author("Morten Lohne")
@@ -142,7 +148,7 @@ pub fn parse_cli_arguments() -> CliOptions {
                 input.parse::<Komi>().map(|_| ())
             }),
         )
-        .get_matches();
+        .get_matches_from_safe(itr)?;
 
     let (time, increment) =
         parser::parse_tc(matches.value_of("tc").unwrap()).unwrap_or_else(|err| panic!("{}", err));
@@ -159,7 +165,7 @@ pub fn parse_cli_arguments() -> CliOptions {
         s => panic!("Unsupported book format {}", s),
     };
 
-    CliOptions {
+    Ok(CliOptions {
         size: matches.value_of("size").unwrap().parse().unwrap(),
         concurrency: matches.value_of("concurrency").unwrap().parse().unwrap(),
         games: matches.value_of("games").unwrap().parse().unwrap(),
@@ -185,5 +191,5 @@ pub fn parse_cli_arguments() -> CliOptions {
             - 1,
         log_file_name: matches.value_of("log").map(|s| s.to_string()),
         komi: matches.value_of("komi").unwrap().parse().unwrap(),
-    }
+    })
 }

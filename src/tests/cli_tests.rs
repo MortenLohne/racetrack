@@ -1,0 +1,47 @@
+use std::time::Duration;
+
+use tiltak::position::Komi;
+
+use crate::cli;
+use crate::openings;
+
+#[test]
+fn cli_test() {
+    let input = "./racetrack -s 6 --games 2000 --tc 60+0.6 --concurrency 10 --book 6s_4ply_balanced_openings.txt --ptnout tako_vs_tiltak.ptn -l racetrack.log --engine tiltak taktician";
+
+    // "tei -multi-cut -table-mem 512000000" is quoted in the real input, which becomes one element in the argument list
+    let tail_input = ["--engine2-args", "tei -multi-cut -table-mem 512000000"];
+
+    let cli_options = cli::parse_cli_arguments_from(
+        input
+            .split_whitespace()
+            .chain(tail_input)
+            .map(|word| word.into()),
+    );
+
+    let expected = cli::CliOptions {
+        size: 6,
+        concurrency: 10,
+        games: 2000,
+        time: Duration::from_secs(60),
+        increment: Duration::from_millis(600),
+        engine_paths: ["tiltak".to_string(), "taktician".to_string()],
+        engine_args: [
+            None,
+            Some("tei -multi-cut -table-mem 512000000".to_string()),
+        ],
+        pgnout: Some("tako_vs_tiltak.ptn".to_string()),
+        book_path: Some("6s_4ply_balanced_openings.txt".to_string()),
+        book_format: openings::BookFormat::MoveList,
+        shuffle_book: false,
+        book_start_index: 0,
+        log_file_name: Some("racetrack.log".to_string()),
+        komi: Komi::default(),
+    };
+
+    if let Err(err) = &cli_options {
+        eprintln!("{err}")
+    }
+
+    assert_eq!(cli_options.unwrap(), expected)
+}
