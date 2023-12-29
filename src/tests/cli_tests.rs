@@ -26,7 +26,7 @@ fn cli_test() {
         time: Duration::from_secs(60),
         increment: Duration::from_millis(600),
         engine_paths: ["tiltak".to_string(), "taktician".to_string()],
-        engine_args: [
+        engine_cli_args: [
             None,
             Some("tei -multi-cut -table-mem 512000000".to_string()),
         ],
@@ -61,7 +61,7 @@ fn shuffle_book_test() {
         time: Duration::from_secs(60),
         increment: Duration::from_millis(600),
         engine_paths: ["tiltak".to_string(), "taktician".to_string()],
-        engine_args: [None, None],
+        engine_cli_args: [None, None],
         pgnout: None,
         book_path: Some("openings.ptn".to_string()),
         book_format: openings::BookFormat::Pgn,

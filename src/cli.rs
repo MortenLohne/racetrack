@@ -14,7 +14,8 @@ pub struct CliOptions {
     pub time: Duration,
     pub increment: Duration,
     pub engine_paths: [String; 2],
-    pub engine_args: [Option<String>; 2],
+    pub engine_cli_args: [Option<String>; 2],
+    pub engine_tei_args: [Vec<(String, String)>; 2],
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
     pub book_format: openings::BookFormat,
@@ -133,7 +134,7 @@ pub fn parse_cli_arguments_from(
             let mut engine_path = None;
             let mut engine_arg = None;
             let mut engine_tc_str = None;
-            let mut tei_settings = vec![];
+            let mut tei_settings: Vec<(String, String)> = vec![];
 
             for arg in engine.chain(
                 matches
@@ -143,20 +144,19 @@ pub fn parse_cli_arguments_from(
             ) {
                 if let Some((arg, value)) = arg.split_once('=') {
                     if let Some(option_arg) = arg.strip_prefix("option.") {
-                        if tei_settings.iter().any(|(a, _)| a == option_arg) {
+                        if tei_settings
+                            .iter()
+                            .any(|(a, _)| a.eq_ignore_ascii_case(option_arg))
+                        {
                             panic!(
                                 "Duplicate value for tei argument {} for engine #{}",
                                 option_arg,
                                 id + 1
                             )
                         } else {
-                            assert_ne!(option_arg, "komi");
+                            assert!(!option_arg.eq_ignore_ascii_case("HalfKomi"));
                             tei_settings.push((option_arg.to_string(), value.to_string()));
                         }
-                        eprintln!(
-                            "Warning: Parsed TEI option \"{}\" with value \"{}\", but it will be ignored",
-                            option_arg, value
-                        )
                     } else {
                         match arg {
                             "path" if engine_path.is_some() => {
@@ -238,7 +238,11 @@ pub fn parse_cli_arguments_from(
         time: engines[0].time,           // TODO: Support asymmetric TC
         increment: engines[0].increment, // TODO: Support asymmetric TC
         engine_paths: [engines[0].path.to_string(), engines[1].path.to_string()],
-        engine_args: [engines[0].cli_args.clone(), engines[1].cli_args.clone()],
+        engine_cli_args: [engines[0].cli_args.clone(), engines[1].cli_args.clone()],
+        engine_tei_args: [
+            engines[0].tei_settings.clone(),
+            engines[1].tei_settings.clone(),
+        ],
         pgnout: matches.get_one("file").cloned(),
         book_path: matches.get_one("book").cloned(),
         book_format,
