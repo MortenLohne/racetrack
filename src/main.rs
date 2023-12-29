@@ -44,7 +44,10 @@ pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
             println!("Loading opening book");
             openings::openings_from_file::<Position<S>>(path, cli_args.book_format)?
         }
-        None => vec![],
+        None => vec![Opening {
+            root_position: Position::start_position_with_komi(cli_args.komi),
+            moves: vec![],
+        }],
     };
 
     if cli_args.shuffle_book {
