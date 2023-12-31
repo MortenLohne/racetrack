@@ -41,7 +41,23 @@ pub fn parse_cli_arguments() -> CliOptions {
 pub fn parse_cli_arguments_from(
     itr: impl Iterator<Item = OsString>,
 ) -> Result<CliOptions, clap::Error> {
+    let after_help: &'static str = color_print::cstr!(
+        r#"<bold><underline>Per-engine options:</underline></bold>
+        These options are set on each individual engine following a `--engine` argument, or to <italic>all</italic> engines following an `--all-engines` argument
+
+        <bold>path=PATH</bold>
+            File path to engine binary.
+        <bold>tc=TC</bold>
+            Time control for each game, in seconds. Format is time+increment, where the increment is optional.
+        <bold>arg=ARGS</bold>
+            Command-line arguments to pass to the engine.
+        <bold>option.OPTION=VALUE</bold>
+            Set tei <italic>option</italic> to <italic>value</italic> for the engine.
+        "#
+    );
+
     let matches = Command::new("Racetrack")
+        .after_help(after_help)
         .version("0.2.1")
         .author("Morten Lohne")
         .about("Play a match between two or more Tak engines")
@@ -55,14 +71,16 @@ pub fn parse_cli_arguments_from(
                 .value_parser(clap::value_parser!(u64).range(4..=8)),
         )
         .arg(Arg::new("engine-flag")
-            .help("Specify the file path of an engine. Must be used twice to add both engines.")
+            .help("Add an engine to the tournament, followed by configuration options for that engine, see below. Must be used once per engine.")
             .short('e')
             .long("engine")
+            .value_name("options")
             .num_args(0..)
             .action(ArgAction::Append))
         .arg(Arg::new("engine-flag-all")
-            .help("Specify the file path of an engine. Must be used twice to add both engines.")
+            .help("Set engine configuration options that apply to all engines.")
             .long("all-engines")
+            .value_name("options")
             .num_args(0..))
         .arg(Arg::new("concurrency")
             .help("Number of games to run in parallel.")
