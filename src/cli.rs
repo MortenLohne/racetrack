@@ -146,7 +146,8 @@ pub fn parse_cli_arguments_from(
 
     let engines: Vec<CliEngine> = matches
         .get_occurrences::<String>("engine-flag")
-        .unwrap()
+        .into_iter()
+        .flatten()
         .enumerate()
         .map(|(id, engine)| {
             let mut engine_path = None;
@@ -248,12 +249,17 @@ pub fn parse_cli_arguments_from(
     }
     println!();
 
-    assert_eq!(
-        engines.len(),
-        2,
-        "Got {} engines, only 2 is supported",
-        engines.len()
-    );
+    if engines.len() != 2 {
+        if engines.is_empty() {
+            eprintln!("Error: No engines added to tournament, use the --engine argument",);
+        } else {
+            eprintln!(
+                "Error: Got {} engines, only exactly 2 is supported",
+                engines.len()
+            );
+        }
+        process::exit(1);
+    }
 
     for engine in engines.iter() {
         if engine.time != engines[0].time {
