@@ -7,10 +7,10 @@ use crate::openings;
 
 #[test]
 fn cli_test() {
-    let input: &str = "./racetrack -s 6 --games 2000 --tc 60+0.6 --concurrency 10 --book 6s_4ply_balanced_openings.txt --ptnout tako_vs_tiltak.ptn -l racetrack.log --shuffle-book --engine tiltak taktician";
+    let input: &str = "./racetrack -s 6 --games 2000 --all-engines tc=60+0.6 --concurrency 10 --book 6s_4ply_balanced_openings.txt --ptnout tako_vs_tiltak.ptn -l racetrack.log --shuffle-book --engine path=tiltak --engine path=taktician";
 
     // "tei -multi-cut -table-mem 512000000" is quoted in the real input, which becomes one element in the argument list
-    let tail_input = ["--engine2-args", "tei -multi-cut -table-mem 512000000"];
+    let tail_input = ["arg=tei -multi-cut -table-mem 512000000"];
 
     let cli_options = cli::parse_cli_arguments_from(
         input
@@ -30,6 +30,7 @@ fn cli_test() {
             None,
             Some("tei -multi-cut -table-mem 512000000".to_string()),
         ],
+        engine_tei_args: [vec![], vec![]],
         pgnout: Some("tako_vs_tiltak.ptn".to_string()),
         book_path: Some("6s_4ply_balanced_openings.txt".to_string()),
         book_format: openings::BookFormat::MoveList,
@@ -49,7 +50,7 @@ fn cli_test() {
 #[test]
 fn shuffle_book_test() {
     let input: &str =
-        "./racetrack -s 5 --games 100 --tc 60+0.6 --book openings.ptn --engine tiltak taktician --komi 2.5 --book-start 10 --book-format ptn";
+        "./racetrack -s 5 --games 100 --book openings.ptn --engine path=tiltak --engine path=taktician --komi 2.5 --book-start 10 --book-format ptn --all-engines tc=60+0.6";
 
     let cli_options =
         cli::parse_cli_arguments_from(input.split_whitespace().map(|word| word.into()));
@@ -62,6 +63,7 @@ fn shuffle_book_test() {
         increment: Duration::from_millis(600),
         engine_paths: ["tiltak".to_string(), "taktician".to_string()],
         engine_cli_args: [None, None],
+        engine_tei_args: [vec![], vec![]],
         pgnout: None,
         book_path: Some("openings.ptn".to_string()),
         book_format: openings::BookFormat::Pgn,
