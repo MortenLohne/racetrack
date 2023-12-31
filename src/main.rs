@@ -84,20 +84,20 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
 
 fn run_match<const S: usize>(openings: Vec<Opening<Position<S>>>, cli_args: CliOptions) {
     let engine_builders: Vec<EngineBuilder> = cli_args
-        .engine_paths
+        .engines
         .iter()
-        .zip(cli_args.engine_cli_args.iter())
-        .zip(cli_args.engine_tei_args.iter())
-        .map(|((path, args), tei_args)| {
-            let mut desired_uci_options = tei_args.clone();
+        .map(|engine| {
+            let mut desired_uci_options = engine.tei_settings.clone();
             desired_uci_options.push((
                 "HalfKomi".to_string(),
                 cli_args.komi.half_komi().to_string(),
             ));
             EngineBuilder {
-                path: path.to_string(),
-                args: args.clone(),
+                path: engine.path.to_string(),
+                args: engine.cli_args.clone(),
                 desired_uci_options,
+                game_time: engine.time,
+                increment: engine.increment,
             }
         })
         .collect();
@@ -120,8 +120,6 @@ fn run_match<const S: usize>(openings: Vec<Opening<Position<S>>>, cli_args: CliO
             komi: cli_args.komi,
         },
         concurrency: cli_args.concurrency,
-        time: cli_args.time,
-        increment: cli_args.increment,
         openings,
         openings_start_index: cli_args.book_start_index,
         num_games: cli_args.games,

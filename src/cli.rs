@@ -3,7 +3,7 @@ use crate::{
     uci::parser,
 };
 use clap::{self, Arg, ArgAction, Command};
-use std::{env, ffi::OsString, process, time::Duration};
+use std::{convert::TryInto, env, ffi::OsString, process, time::Duration};
 use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -11,11 +11,7 @@ pub struct CliOptions {
     pub size: usize,
     pub concurrency: usize,
     pub games: usize,
-    pub time: Duration,
-    pub increment: Duration,
-    pub engine_paths: [String; 2],
-    pub engine_cli_args: [Option<String>; 2],
-    pub engine_tei_args: [Vec<(String, String)>; 2],
+    pub engines: [CliEngine; 2],
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
     pub book_format: openings::BookFormat,
@@ -25,13 +21,13 @@ pub struct CliOptions {
     pub komi: Komi,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliEngine {
-    path: String,
-    cli_args: Option<String>,
-    time: Duration,
-    increment: Duration,
-    tei_settings: Vec<(String, String)>,
+    pub path: String,
+    pub cli_args: Option<String>,
+    pub time: Duration,
+    pub increment: Duration,
+    pub tei_settings: Vec<(String, String)>,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -261,17 +257,6 @@ pub fn parse_cli_arguments_from(
         process::exit(1);
     }
 
-    for engine in engines.iter() {
-        if engine.time != engines[0].time {
-            eprintln!("Error: Asymmetric time controls are not supported. Currently {:?} for {} and {:?} for {}", engine.time, engine.path, engines[0].time, engines[0].path);
-            process::exit(1)
-        }
-        if engine.increment != engines[0].increment {
-            eprintln!("Error: Asymmetric time controls are not supported. Currently {:?} increment for {} and {:?} increment for {}", engine.increment, engine.path, engines[0].increment, engines[0].path);
-            process::exit(1)
-        }
-    }
-
     let book_format = match matches.get_one::<String>("book-format").unwrap().as_str() {
         "move-list" => BookFormat::MoveList,
         "tps" => BookFormat::Fen,
@@ -283,14 +268,7 @@ pub fn parse_cli_arguments_from(
         size: *matches.get_one::<u64>("size").unwrap() as usize,
         concurrency: *matches.get_one::<u64>("concurrency").unwrap() as usize,
         games: *matches.get_one::<usize>("games").unwrap(),
-        time: engines[0].time,           // TODO: Support asymmetric TC
-        increment: engines[0].increment, // TODO: Support asymmetric TC
-        engine_paths: [engines[0].path.to_string(), engines[1].path.to_string()],
-        engine_cli_args: [engines[0].cli_args.clone(), engines[1].cli_args.clone()],
-        engine_tei_args: [
-            engines[0].tei_settings.clone(),
-            engines[1].tei_settings.clone(),
-        ],
+        engines: engines.try_into().unwrap(),
         pgnout: matches.get_one("file").cloned(),
         book_path: matches.get_one("book").cloned(),
         book_format,

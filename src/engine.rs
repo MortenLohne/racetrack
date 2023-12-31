@@ -14,6 +14,8 @@ pub struct EngineBuilder {
     pub path: String,
     pub args: Option<String>,
     pub desired_uci_options: Vec<(String, String)>,
+    pub game_time: Duration,
+    pub increment: Duration,
 }
 
 impl EngineBuilder {

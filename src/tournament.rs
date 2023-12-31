@@ -8,7 +8,6 @@ use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
-use std::time::Duration;
 use std::{fmt, io};
 use tiltak::ptn::Game;
 
@@ -16,8 +15,6 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub size: usize,
     pub position_settings: B::Settings,
     pub concurrency: usize,
-    pub time: Duration,
-    pub increment: Duration,
     pub num_games: usize,
     pub openings: Vec<Opening<B>>,
     pub openings_start_index: usize,
@@ -27,7 +24,6 @@ pub struct TournamentSettings<B: PgnPosition> {
 impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Concurrency: {}", self.concurrency)?;
-        writeln!(f, "Total time: {:.1}s", self.time.as_secs_f32())?;
         writeln!(f, "num_games: {}", self.num_games)?;
         Ok(())
     }
@@ -64,8 +60,6 @@ where
                 .clone(),
                 white_engine_id: EngineId(round_number % 2),
                 black_engine_id: EngineId((round_number + 1) % 2),
-                time: settings.time,
-                increment: settings.increment,
                 size: settings.size,
             })
             .collect();

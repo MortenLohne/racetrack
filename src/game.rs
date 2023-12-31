@@ -8,7 +8,7 @@ use log::{error, warn};
 use pgn_traits::PgnPosition;
 use std::fmt::Write;
 use std::io;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tiltak::position::Komi;
 use tiltak::ptn::{Game, PtnMove};
 
@@ -18,8 +18,6 @@ pub struct ScheduledGame<B: PgnPosition> {
     pub opening: Opening<B>,
     pub white_engine_id: EngineId,
     pub black_engine_id: EngineId,
-    pub time: Duration,
-    pub increment: Duration,
     pub size: usize,
 }
 
@@ -67,8 +65,11 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         while white.uci_read_line()?.trim() != "readyok" {}
         while black.uci_read_line()?.trim() != "readyok" {}
 
-        let mut white_time = self.time;
-        let mut black_time = self.time;
+        let mut white_time = white.builder().game_time;
+        let mut black_time = black.builder().game_time;
+
+        let white_inc = white.builder().increment;
+        let black_inc = black.builder().increment;
 
         let (result, result_description) = 'gameloop: loop {
             // TODO: Choose max game length
@@ -109,8 +110,8 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 "go wtime {} btime {} winc {} binc {}",
                 white_time.as_millis(),
                 black_time.as_millis(),
-                self.increment.as_millis(),
-                self.increment.as_millis(),
+                white_inc.as_millis(),
+                black_inc.as_millis(),
             ))?;
 
             let start_time_for_move = Instant::now();
@@ -192,7 +193,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 Color::White => {
                     if time_taken <= white_time {
                         white_time -= time_taken;
-                        white_time += self.increment;
+                        white_time += white_inc;
                     } else {
                         break (Some("0-1"), "Black wins on time".to_string());
                     }
@@ -200,7 +201,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 Color::Black => {
                     if time_taken <= black_time {
                         black_time -= time_taken;
-                        black_time += self.increment;
+                        black_time += black_inc;
                     } else {
                         break (Some("1-0"), "White wins on time".to_string());
                     }
@@ -222,12 +223,25 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             ),
             (
                 "Clock".to_string(),
-                format!(
-                    "{}:{} +{:.1}",
-                    self.time.as_secs() / 60,
-                    self.time.as_secs() % 60,
-                    self.increment.as_secs_f32()
-                ),
+                if white.builder().game_time == black.builder().game_time && white_inc == black_inc
+                {
+                    format!(
+                        "{}:{} +{:.1}",
+                        white.builder().game_time.as_secs() / 60,
+                        white.builder().game_time.as_secs() % 60,
+                        white_inc.as_secs_f32()
+                    )
+                } else {
+                    format!(
+                        "{}:{} +{:.1} vs {}:{} +{:.1}",
+                        white.builder().game_time.as_secs() / 60,
+                        white.builder().game_time.as_secs() % 60,
+                        white_inc.as_secs_f32(),
+                        black.builder().game_time.as_secs() / 60,
+                        black.builder().game_time.as_secs() % 60,
+                        black_inc.as_secs_f32()
+                    )
+                },
             ),
         ];
 
