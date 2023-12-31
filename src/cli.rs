@@ -3,7 +3,7 @@ use crate::{
     uci::parser,
 };
 use clap::{self, Arg, ArgAction, Command};
-use std::{env, ffi::OsString, time::Duration};
+use std::{env, ffi::OsString, process, time::Duration};
 use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,13 +136,13 @@ pub fn parse_cli_arguments_from(
             let mut engine_tc_str = None;
             let mut tei_settings: Vec<(String, String)> = vec![];
 
-            for arg in engine.chain(
+            for full_arg in engine.chain(
                 matches
                     .get_many::<String>("engine-flag-all")
                     .into_iter()
                     .flatten(),
             ) {
-                if let Some((arg, value)) = arg.split_once('=') {
+                if let Some((arg, value)) = full_arg.split_once('=') {
                     if let Some(option_arg) = arg.strip_prefix("option.") {
                         if tei_settings
                             .iter()
@@ -186,18 +186,36 @@ pub fn parse_cli_arguments_from(
                                 )
                             }
                             "tc" => engine_tc_str = Some(value),
-                            _ => panic!("Unknown argument {} for engine #{}", arg, id + 1),
+                            _ => {
+                                eprintln!(
+                                    "Error: unknown argument {} for engine #{}",
+                                    full_arg,
+                                    id + 1
+                                );
+                                process::exit(1)
+                            }
                         }
                     }
                 } else {
-                    panic!("Invalid input {}", arg); // TODO: Don't panic, better error message
+                    eprintln!("Error: Expected key=val, found {}", full_arg);
+                    process::exit(1)
                 }
             }
-
-            let (time, increment) = parser::parse_tc(engine_tc_str.unwrap()).unwrap(); // TODO: Error message
+            let Some(path) = engine_path else {
+                eprintln!("Error: Missing binary path for engine #{}", id + 1);
+                process::exit(1)
+            };
+            let Some(tc_str) = engine_tc_str else {
+                eprintln!("Error: Missing time control for engine {}", path);
+                process::exit(1)
+            };
+            let (time, increment) = parser::parse_tc(tc_str).unwrap_or_else(|err| {
+                eprintln!("{} for engine {}", err, path);
+                process::exit(1)
+            });
 
             CliEngine {
-                path: engine_path.unwrap().to_string(), // TODO: Error message
+                path: path.to_string(),
                 cli_args: engine_arg.map(ToString::to_string),
                 time,
                 increment,
@@ -219,10 +237,16 @@ pub fn parse_cli_arguments_from(
         engines.len()
     );
 
-    assert!(engines.iter().all(|engine| engine.time == engines[0].time)); // TODO: Error message
-    assert!(engines
-        .iter()
-        .all(|engine| engine.increment == engines[0].increment)); // TODO: Error message
+    for engine in engines.iter() {
+        if engine.time != engines[0].time {
+            eprintln!("Error: Asymmetric time controls are not supported. Currently {:?} for {} and {:?} for {}", engine.time, engine.path, engines[0].time, engines[0].path);
+            process::exit(1)
+        }
+        if engine.increment != engines[0].increment {
+            eprintln!("Error: Asymmetric time controls are not supported. Currently {:?} increment for {} and {:?} increment for {}", engine.increment, engine.path, engines[0].increment, engines[0].path);
+            process::exit(1)
+        }
+    }
 
     let book_format = match matches.get_one::<String>("book-format").unwrap().as_str() {
         "move-list" => BookFormat::MoveList,
