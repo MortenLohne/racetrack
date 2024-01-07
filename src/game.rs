@@ -166,9 +166,12 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
                         let score_string = match last_uci_info {
                             Some(uci_info) => format!(
-                                "{}{:.2}/{} {:.2}s",
-                                if uci_info.cp_score > 0 { "+" } else { "" },
-                                uci_info.cp_score as f64 / 100.0,
+                                "{:+.2}/{} {:.2}s",
+                                match position.side_to_move() {
+                                    // Flip sign if last move was black's
+                                    Color::White => uci_info.cp_score as f64 / -100.0,
+                                    Color::Black => uci_info.cp_score as f64 / 100.0,
+                                },
                                 uci_info.depth,
                                 start_time_for_move.elapsed().as_secs_f32(),
                             ),
