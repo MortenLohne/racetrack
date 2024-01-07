@@ -1,4 +1,5 @@
 use std::io::{BufWriter, Result};
+use std::sync::atomic::{self, AtomicBool};
 use std::{io, process, result};
 
 use crate::cli::CliOptions;
@@ -61,7 +62,21 @@ pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
         })?;
     }
 
-    run_match(openings, cli_args);
+    // If user presses ctrl-c, try to finish the games that are already running
+    let is_shutting_down: &'static AtomicBool = Box::leak(Box::new(AtomicBool::new(false)));
+
+    ctrlc::set_handler(move || {
+        // If is_shutting_down was already set, exit immediately
+        if is_shutting_down.swap(true, atomic::Ordering::SeqCst) {
+            process::exit(0)
+        } else {
+            println!("\nGot Ctrl-C, waiting for running games to finish...");
+            println!("Press Ctrl-C again to exit immediately");
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    run_match(openings, cli_args, is_shutting_down);
     Ok(())
 }
 
@@ -82,7 +97,11 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
     Ok(())
 }
 
-fn run_match<const S: usize>(openings: Vec<Opening<Position<S>>>, cli_args: CliOptions) {
+fn run_match<const S: usize>(
+    openings: Vec<Opening<Position<S>>>,
+    cli_args: CliOptions,
+    is_shutting_down: &'static AtomicBool,
+) {
     let engine_builders: Vec<EngineBuilder> = cli_args
         .engines
         .iter()
@@ -128,7 +147,7 @@ fn run_match<const S: usize>(openings: Vec<Opening<Position<S>>>, cli_args: CliO
 
     let tournament = Tournament::new_head_to_head(settings);
 
-    tournament.play(cli_args.concurrency, &engine_builders);
+    tournament.play(cli_args.concurrency, is_shutting_down, &engine_builders);
 }
 
 /// Utility for quickly exiting during initialization, generally due to a user error

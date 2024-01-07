@@ -6,6 +6,7 @@ use crate::simulation::MatchScore;
 use crate::{exit_with_error, simulation};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
+use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::{fmt, io};
@@ -103,7 +104,12 @@ where
         engine
     }
 
-    pub fn play(self, threads: usize, engine_builders: &[EngineBuilder]) -> Vec<Game<B>> {
+    pub fn play(
+        self,
+        threads: usize,
+        is_shutting_down: &'static AtomicBool,
+        engine_builders: &[EngineBuilder],
+    ) {
         let engine_names: Vec<String> = engine_builders
             .iter()
             .map(|builder| builder.path.clone())
@@ -144,6 +150,9 @@ where
                     .name(format!("Worker #{}", worker.id))
                     .spawn(move || {
                         while let Some(scheduled_game) = thread_tournament.next_unplayed_game() {
+                            if is_shutting_down.load(atomic::Ordering::SeqCst) {
+                                break;
+                            }
                             let round_number = scheduled_game.round_number;
                             let game = scheduled_game
                                 .play_game(&mut worker, &thread_tournament.position_settings)
@@ -170,11 +179,6 @@ where
             thread_handle.join().unwrap();
         }
         tournament_arc.print_score(&engine_names);
-        let tournament = tournament_arc.finished_games.lock().unwrap();
-        tournament
-            .iter()
-            .map(|game| game.to_owned().unwrap())
-            .collect()
     }
 
     fn print_score(&self, engine_names: &[String]) {

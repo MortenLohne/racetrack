@@ -4,6 +4,8 @@ use log::{debug, info, warn};
 use std::io;
 use std::io::Result;
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
 use std::string::ToString;
 use std::time::Duration;
@@ -27,6 +29,25 @@ impl EngineBuilder {
 
         // TODO: More helpful error message if engine binary is not found.
         // For example, print contents of directory searched?
+
+        // On Unix, set process_group(0) on each engine, to give each its own process group
+        // Otherwise, Ctrl-C from a terminal would propagate to the engines and immediately kill them, even if we caught the signal
+        // More details https://mywiki.wooledge.org/SignalTrap
+        #[cfg(unix)]
+        let mut child = match &self.args {
+            Some(args) => Command::new(&absolute_path)
+                .process_group(0)
+                .args(args.split_whitespace())
+                .stdout(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()?,
+            None => Command::new(&absolute_path)
+                .process_group(0)
+                .stdout(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()?,
+        };
+        #[cfg(not(unix))]
         let mut child = match &self.args {
             Some(args) => Command::new(&absolute_path)
                 .args(args.split_whitespace())
