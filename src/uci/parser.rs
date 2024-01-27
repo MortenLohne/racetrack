@@ -169,6 +169,27 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
 pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciError> {
     let mut pv: Vec<&str> = vec![];
     let mut cp_score = None;
+    let mut depth: u16 = 0;
+
+    // These words are "special", and are used to delimit multi-word infos such as "pv"
+    const KEYWORDS: &[&str] = &[
+        "depth",
+        "seldepth",
+        "nodes",
+        "score",
+        "time",
+        "nps",
+        "pv",
+        "multipv",
+        "currmove",
+        "currmovenumber",
+        "hashfull",
+        "tbhits",
+        "cpuload",
+        "string",
+        "refutation",
+        "currline",
+    ];
 
     let mut words_iter = input.split_whitespace().peekable();
     assert_eq!(words_iter.next(), Some("info"));
@@ -196,8 +217,29 @@ pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciE
                         "Received multiple PVs".to_string(),
                     ));
                 }
-                while words_iter.peek().is_some() {
+                while words_iter
+                    .peek()
+                    .is_some_and(|word| !KEYWORDS.contains(word))
+                {
                     pv.push(words_iter.next().unwrap());
+                }
+            }
+            "depth" => {
+                if let Some(depth_string) = words_iter.next() {
+                    match depth_string.parse() {
+                        Ok(d) => depth = d,
+                        Err(err) => {
+                            return Err(UciError::new_caused_by(
+                                UciErrorKind::ParseError,
+                                format!("Failed to parse depth \"{}\"", depth_string),
+                                Box::new(err),
+                            ))
+                        }
+                    }
+                } else {
+                    return Err(UciError::new_parse_error(
+                        "Did not receive a value for key \"depth\"".to_string(),
+                    ));
                 }
             }
             _ => (),
@@ -205,7 +247,7 @@ pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciE
     }
     if let Some(score) = cp_score {
         Ok(UciInfo {
-            depth: 0,
+            depth,
             seldepth: 0,
             time: 0,
             nodes: 0,
