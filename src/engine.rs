@@ -129,8 +129,14 @@ impl Engine {
 
     pub fn uci_write_line(&mut self, line: &str) -> Result<()> {
         writeln!(self.stdin, "{}", line)?;
-        debug!("> {}: {}", self.name, line);
-        self.stdin.flush()
+        self.stdin.flush()?;
+        debug!(
+            "> {} {}: {}",
+            self.name,
+            thread::current().name().unwrap_or_default(),
+            line
+        );
+        Ok(())
     }
 
     fn read_line(&mut self) -> Result<String> {
@@ -141,7 +147,12 @@ impl Engine {
                 "Read 0 bytes from engine",
             ))
         } else {
-            debug!("< {}: {}", self.name, input.trim());
+            debug!(
+                "< {} {}: {}",
+                self.name,
+                thread::current().name().unwrap_or_default(),
+                input.trim()
+            );
             Ok(input)
         }
     }

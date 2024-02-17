@@ -8,8 +8,8 @@ use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
 use std::fmt::Write;
-use std::io;
 use std::time::Instant;
+use std::{io, thread};
 use tiltak::position::Komi;
 use tiltak::ptn::{Game, PtnMove};
 
@@ -125,7 +125,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                     if err.kind() == io::ErrorKind::UnexpectedEof
                         || err.kind() == io::ErrorKind::BrokenPipe
                     {
-                        warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), self.round_number);
+                        warn!("{} {} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), thread::current().name().unwrap_or_default(), self.round_number);
                         engine_to_move.restart()?;
                         break (
                             Some(forfeit_win_str(!position.side_to_move())),

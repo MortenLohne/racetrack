@@ -147,7 +147,7 @@ where
                 let thread_tournament = tournament_arc.clone();
                 let engine_names = engine_names.clone();
                 Builder::new()
-                    .name(format!("Worker #{}", worker.id))
+                    .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
                     .spawn(move || {
                         while let Some(scheduled_game) = thread_tournament.next_unplayed_game() {
                             if is_shutting_down.load(atomic::Ordering::SeqCst) {
