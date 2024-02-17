@@ -1,3 +1,4 @@
+use crate::engine::Engine;
 use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
@@ -71,7 +72,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         let white_inc = white.builder().increment;
         let black_inc = black.builder().increment;
 
-        let (result, result_description) = 'gameloop: loop {
+        let (result, result_description) = loop {
             // TODO: Choose max game length
             if moves.len() > 1000 {
                 break (
@@ -89,6 +90,8 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 Color::Black => &mut black,
             };
 
+            let start_time_for_move = Instant::now();
+
             let mut position_string = String::new();
 
             if self.opening.root_position == B::start_position() {
@@ -104,28 +107,27 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 position_board.do_move(mv.clone());
             }
 
-            engine_to_move.uci_write_line(&position_string)?;
-
-            engine_to_move.uci_write_line(&format!(
+            let go_string = format!(
                 "go wtime {} btime {} winc {} binc {}",
                 white_time.as_millis(),
                 black_time.as_millis(),
                 white_inc.as_millis(),
                 black_inc.as_millis(),
-            ))?;
+            );
 
-            let start_time_for_move = Instant::now();
-
-            let mut last_uci_info: Option<UciInfo<B>> = None;
-
-            loop {
-                let read_result = engine_to_move.uci_read_line();
-
-                if let Err(err) = read_result {
-                    if err.kind() == io::ErrorKind::UnexpectedEof {
+            let (move_string, last_uci_info) = match Self::play_move(
+                engine_to_move,
+                &position_string,
+                &go_string,
+            ) {
+                Ok(mv) => mv,
+                Err(err) => {
+                    if err.kind() == io::ErrorKind::UnexpectedEof
+                        || err.kind() == io::ErrorKind::BrokenPipe
+                    {
                         warn!("{} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), self.round_number);
                         engine_to_move.restart()?;
-                        break 'gameloop (
+                        break (
                             Some(forfeit_win_str(!position.side_to_move())),
                             format!("{} disconnected or crashed", position.side_to_move()),
                         );
@@ -138,60 +140,46 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         return Err(err);
                     }
                 }
+            };
 
-                let input = read_result.unwrap();
-
-                if input.starts_with("info") {
-                    match parse_info_string(&input) {
-                        Ok(uci_info) => last_uci_info = Some(uci_info),
-                        Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
-                    }
-                }
-                if input.starts_with("bestmove") {
-                    if let Some(mv) = input
-                        .split_whitespace()
-                        .nth(1)
-                        .and_then(|s| position.move_from_lan(s).ok())
-                    {
-                        let mut legal_moves = vec![];
-                        position.generate_moves(&mut legal_moves);
-                        // Check that the move is legal
-                        if !legal_moves.contains(&mv) {
-                            break 'gameloop (
-                                Some(forfeit_win_str(!position.side_to_move())),
-                                format!("{} made an illegal move", position.side_to_move()),
-                            );
-                        }
-                        position.do_move(mv.clone());
-
-                        let score_string = match last_uci_info {
-                            Some(uci_info) => format!(
-                                "{:+.2}/{} {:.2}s",
-                                match position.side_to_move() {
-                                    // Flip sign if last move was black's
-                                    Color::White => uci_info.cp_score as f64 / -100.0,
-                                    Color::Black => uci_info.cp_score as f64 / 100.0,
-                                },
-                                uci_info.depth,
-                                start_time_for_move.elapsed().as_secs_f32(),
-                            ),
-                            None => String::new(),
-                        };
-                        moves.push(PtnMove {
-                            mv,
-                            annotations: vec![],
-                            comment: score_string,
-                        });
-                        break;
-                    } else {
-                        break 'gameloop (
-                            Some(forfeit_win_str(!position.side_to_move())),
-                            format!("{} sent a malformed move", position.side_to_move()),
-                        );
-                    }
-                }
-            }
             let time_taken = start_time_for_move.elapsed();
+
+            let Ok(mv) = position.move_from_lan(&move_string) else {
+                break (
+                    Some(forfeit_win_str(!position.side_to_move())),
+                    format!("{} sent a malformed move", position.side_to_move()),
+                );
+            };
+            let mut legal_moves = vec![];
+            position.generate_moves(&mut legal_moves);
+            // Check that the move is legal
+            if !legal_moves.contains(&mv) {
+                break (
+                    Some(forfeit_win_str(!position.side_to_move())),
+                    format!("{} made an illegal move", position.side_to_move()),
+                );
+            }
+            position.do_move(mv.clone());
+
+            let score_string = match last_uci_info {
+                Some(uci_info) => format!(
+                    "{:+.2}/{} {:.2}s",
+                    match position.side_to_move() {
+                        // Flip sign if last move was black's
+                        Color::White => uci_info.cp_score as f64 / -100.0,
+                        Color::Black => uci_info.cp_score as f64 / 100.0,
+                    },
+                    uci_info.depth,
+                    time_taken.as_secs_f32(),
+                ),
+                None => String::new(),
+            };
+            moves.push(PtnMove {
+                mv,
+                annotations: vec![],
+                comment: score_string,
+            });
+
             match !position.side_to_move() {
                 Color::White => {
                     if time_taken <= white_time {
@@ -279,5 +267,38 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             tags,
         };
         Ok(game)
+    }
+
+    fn play_move(
+        engine_to_move: &mut Engine,
+        position_string: &str,
+        go_string: &str,
+    ) -> io::Result<(String, Option<UciInfo<B>>)> {
+        engine_to_move.uci_write_line(position_string)?;
+
+        engine_to_move.uci_write_line(go_string)?;
+
+        let mut last_uci_info: Option<UciInfo<B>> = None;
+
+        loop {
+            let input = engine_to_move.uci_read_line()?;
+
+            if input.starts_with("info") {
+                match parse_info_string(&input) {
+                    Ok(uci_info) => last_uci_info = Some(uci_info),
+                    Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
+                }
+            }
+            if input.starts_with("bestmove") {
+                return Ok((
+                    input
+                        .split_whitespace()
+                        .nth(1)
+                        .unwrap_or_default()
+                        .to_string(),
+                    last_uci_info,
+                ));
+            }
+        }
     }
 }

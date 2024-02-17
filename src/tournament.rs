@@ -154,9 +154,36 @@ where
                                 break;
                             }
                             let round_number = scheduled_game.round_number;
-                            let game = scheduled_game
+                            let game = match scheduled_game
                                 .play_game(&mut worker, &thread_tournament.position_settings)
-                                .unwrap();
+                            {
+                                Ok(game) => game,
+                                // If an error occurs that wasn't handled in play_game(), soft-abort the match
+                                // and write a dummy game to the pgn output, so that later games won't be held up
+                                Err(err) => {
+                                    println!(
+                                        "Fatal IO error in worker thread #{}: {}",
+                                        worker.id, err
+                                    );
+                                    log::error!(
+                                        "Fatal IO error in worker thread #{}: {}",
+                                        worker.id,
+                                        err
+                                    );
+                                    if !is_shutting_down.swap(true, atomic::Ordering::SeqCst) {
+                                        println!(
+                                            "Match aborted, waiting for running games to finish..."
+                                        )
+                                    }
+
+                                    Game {
+                                        start_position: B::start_position(),
+                                        moves: vec![],
+                                        game_result_str: None,
+                                        tags: vec![],
+                                    }
+                                }
+                            };
                             {
                                 let mut finished_games =
                                     thread_tournament.finished_games.lock().unwrap();
