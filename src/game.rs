@@ -73,10 +73,10 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         let (result, result_description) = 'gameloop: loop {
             // TODO: Choose max game length
-            if moves.len() > 200 {
+            if moves.len() > 1000 {
                 break (
                     None,
-                    format!("Game terminated after reaching {} moves.", moves.len()),
+                    format!("Game terminated after reaching {} moves.", moves.len() / 2),
                 );
             }
 
