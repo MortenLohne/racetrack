@@ -6,11 +6,27 @@ use crate::simulation::MatchScore;
 use crate::{exit_with_error, simulation};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::{fmt, io};
 use tiltak::ptn::Game;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TournamentType {
+    HeadToHead,
+    Gauntlet(NonZeroUsize),
+}
+
+impl TournamentType {
+    pub fn num_engines(self) -> usize {
+        match self {
+            TournamentType::HeadToHead => 2,
+            TournamentType::Gauntlet(num_challengers) => num_challengers.get() + 1,
+        }
+    }
+}
 
 pub struct TournamentSettings<B: PgnPosition> {
     pub size: usize,
@@ -20,6 +36,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub openings: Vec<Opening<B>>,
     pub openings_start_index: usize,
     pub pgn_writer: Mutex<PgnWriter<B>>,
+    pub tournament_type: TournamentType,
 }
 
 impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
@@ -30,20 +47,59 @@ impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EngineId(usize);
+impl<B: PgnPosition + Clone> TournamentSettings<B> {
+    pub fn schedule(&self) -> Vec<ScheduledGame<B>> {
+        match self.tournament_type {
+            TournamentType::HeadToHead => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings
+                        [(self.openings_start_index + round_number / 2) % self.openings.len()]
+                    .clone(),
+                    white_engine_id: EngineId(round_number % 2),
+                    black_engine_id: EngineId((round_number + 1) % 2),
+                    size: self.size,
+                })
+                .collect(),
+            TournamentType::Gauntlet(num_challengers) => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings[(self.openings_start_index
+                        + round_number / (num_challengers.get() * 2))
+                        % self.openings.len()]
+                    .clone(),
+                    white_engine_id: if (round_number / num_challengers) % 2 == 0 {
+                        EngineId(0)
+                    } else {
+                        EngineId((round_number % num_challengers) + 1)
+                    },
+                    black_engine_id: if (round_number / num_challengers) % 2 == 1 {
+                        EngineId(0)
+                    } else {
+                        EngineId((round_number % num_challengers) + 1)
+                    },
+                    size: self.size,
+                })
+                .collect(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct GamesSchedule<B: PgnPosition> {
+pub struct EngineId(pub usize);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GamesSchedule<B: PgnPosition> {
     scheduled_games: Vec<ScheduledGame<B>>,
     next_game_id: usize,
 }
 
 pub struct Tournament<B: PgnPosition> {
     position_settings: B::Settings,
-    games_schedule: Mutex<GamesSchedule<B>>,
+    pub games_schedule: Mutex<GamesSchedule<B>>,
     finished_games: Mutex<Vec<Option<Game<B>>>>,
     pgn_writer: Mutex<PgnWriter<B>>,
+    tournament_type: TournamentType,
 }
 
 impl<B> Tournament<B>
@@ -52,18 +108,8 @@ where
     B::Move: Send,
     B::Settings: Send + Sync,
 {
-    pub fn new_head_to_head(settings: TournamentSettings<B>) -> Self {
-        let scheduled_games = (0..settings.num_games)
-            .map(|round_number| ScheduledGame {
-                round_number,
-                opening: settings.openings
-                    [(settings.openings_start_index + round_number / 2) % settings.openings.len()]
-                .clone(),
-                white_engine_id: EngineId(round_number % 2),
-                black_engine_id: EngineId((round_number + 1) % 2),
-                size: settings.size,
-            })
-            .collect();
+    pub fn new(settings: TournamentSettings<B>) -> Self {
+        let scheduled_games = settings.schedule();
 
         Tournament {
             position_settings: settings.position_settings,
@@ -73,6 +119,7 @@ where
             }),
             finished_games: Mutex::new(vec![None; settings.num_games]),
             pgn_writer: settings.pgn_writer,
+            tournament_type: settings.tournament_type,
         }
     }
 
@@ -217,19 +264,16 @@ where
             }
         };
 
-        println!(
-            "Played {} games.",
-            finished_games.iter().filter(|a| a.is_some()).count()
-        );
-
-        let mut engine1_wins = 0;
-        let mut draws = 0;
-        let mut engine2_wins = 0;
+        // Each engine's number of wins vs each other engine
+        let mut engine_wins: Vec<Vec<u64>> =
+            vec![vec![0; self.tournament_type.num_engines()]; self.tournament_type.num_engines()];
+        // Each engine's number of draws vs each other engine
+        let mut engine_draws: Vec<Vec<u64>> =
+            vec![vec![0; self.tournament_type.num_engines()]; self.tournament_type.num_engines()];
 
         let mut white_wins = 0;
         let mut black_wins = 0;
-
-        let engine1_id = EngineId(0);
+        let mut draws = 0;
 
         for (scheduled_game, game) in schedule
             .scheduled_games
@@ -237,57 +281,65 @@ where
             .zip(finished_games.iter())
             .filter_map(|(a, b)| b.as_ref().map(|c| (a, c)))
         {
-            match (
-                scheduled_game.white_engine_id == engine1_id,
-                game.game_result(),
-            ) {
-                (true, Some(WhiteWin)) => {
-                    engine1_wins += 1;
+            match game.game_result() {
+                Some(WhiteWin) => {
+                    engine_wins[scheduled_game.white_engine_id.0]
+                        [scheduled_game.black_engine_id.0] += 1;
                     white_wins += 1;
                 }
-                (true, Some(BlackWin)) => {
-                    engine2_wins += 1;
+                Some(BlackWin) => {
+                    engine_wins[scheduled_game.black_engine_id.0]
+                        [scheduled_game.white_engine_id.0] += 1;
                     black_wins += 1;
                 }
-                (false, Some(WhiteWin)) => {
-                    engine2_wins += 1;
-                    white_wins += 1;
+
+                None | Some(Draw) => {
+                    engine_draws[scheduled_game.white_engine_id.0]
+                        [scheduled_game.black_engine_id.0] += 1;
+                    engine_draws[scheduled_game.black_engine_id.0]
+                        [scheduled_game.white_engine_id.0] += 1;
+                    draws += 1;
                 }
-                (false, Some(BlackWin)) => {
-                    engine1_wins += 1;
-                    black_wins += 1;
-                }
-                (_, None) | (_, Some(Draw)) => draws += 1,
             }
         }
 
-        let score = MatchScore {
-            wins: engine1_wins,
-            draws,
-            losses: engine2_wins,
-        };
-
-        let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
-
-        let lower = full_simulation.result_for_p(0.025);
-        let expected = score.score();
-        let upper = full_simulation.result_for_p(0.975);
-
-        let lower_elo = simulation::to_elo_string(lower);
-        let expected_elo = simulation::to_elo_string(expected);
-        let upper_elo = simulation::to_elo_string(upper);
-
         println!(
-            "{} vs {}: {}, {} elo [{}, {}] (95% confidence). {} white wins, {} black wins.",
-            engine_names[0],
-            engine_names[1],
-            score,
-            expected_elo,
-            lower_elo,
-            upper_elo,
+            "Played {} games. {} white wins, {} black wins, {} draws.",
+            finished_games.iter().filter(|a| a.is_some()).count(),
             white_wins,
-            black_wins
+            black_wins,
+            draws
         );
+
+        assert_eq!(
+            engine_wins.iter().flatten().sum::<u64>() + draws,
+            finished_games.iter().flatten().count() as u64
+        );
+        assert_eq!(
+            white_wins + black_wins + draws,
+            finished_games.iter().flatten().count() as u64
+        );
+
+        assert_eq!(draws, engine_draws.iter().flatten().sum::<u64>() / 2);
+
+        match self.tournament_type {
+            TournamentType::HeadToHead => {
+                print_head_to_head_score(&engine_wins, &engine_draws, engine_names, 0, 1)
+            }
+            // For gauntlet tournament, prints the challengers' scores vs the champion,
+            // instead of the other way around
+            TournamentType::Gauntlet(num_challengers) => {
+                for engine2_id in 1..=num_challengers.get() {
+                    print_head_to_head_score(
+                        &engine_wins,
+                        &engine_draws,
+                        engine_names,
+                        engine2_id,
+                        0,
+                    )
+                }
+            }
+        }
     }
 
     fn next_unplayed_game(&self) -> Option<ScheduledGame<B>> {
@@ -303,6 +355,40 @@ where
             None
         }
     }
+}
+
+fn print_head_to_head_score(
+    engine_wins: &[Vec<u64>],
+    engine_draws: &[Vec<u64>],
+    engine_names: &[String],
+    engine1_id: usize,
+    engine2_id: usize,
+) {
+    let score = MatchScore {
+        wins: engine_wins[engine1_id][engine2_id],
+        draws: engine_draws[engine1_id][engine2_id],
+        losses: engine_wins[engine2_id][engine1_id],
+    };
+
+    let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
+
+    let lower = full_simulation.result_for_p(0.025);
+    let expected = score.score();
+    let upper = full_simulation.result_for_p(0.975);
+
+    let lower_elo = simulation::to_elo_string(lower);
+    let expected_elo = simulation::to_elo_string(expected);
+    let upper_elo = simulation::to_elo_string(upper);
+
+    println!(
+        "{} vs {}: {}, {} elo [{}, {}] (95% confidence).",
+        engine_names[engine1_id],
+        engine_names[engine2_id],
+        score,
+        expected_elo,
+        lower_elo,
+        upper_elo,
+    );
 }
 
 pub(crate) struct Worker {

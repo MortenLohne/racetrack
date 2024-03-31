@@ -143,9 +143,10 @@ fn run_match<const S: usize>(
         openings_start_index: cli_args.book_start_index,
         num_games: cli_args.games,
         pgn_writer: Mutex::new(pgnout),
+        tournament_type: cli_args.tournament_type,
     };
 
-    let tournament = Tournament::new_head_to_head(settings);
+    let tournament = Tournament::new(settings);
 
     tournament.play(cli_args.concurrency, is_shutting_down, &engine_builders);
 }

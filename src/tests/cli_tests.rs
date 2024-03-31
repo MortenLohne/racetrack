@@ -5,6 +5,7 @@ use tiltak::position::Komi;
 use crate::cli;
 use crate::cli::CliEngine;
 use crate::openings;
+use crate::tournament::TournamentType;
 
 #[test]
 fn cli_test() {
@@ -24,7 +25,7 @@ fn cli_test() {
         size: 6,
         concurrency: 10,
         games: 2000,
-        engines: [
+        engines: vec![
             CliEngine {
                 path: "tiltak".to_string(),
                 cli_args: None,
@@ -47,6 +48,7 @@ fn cli_test() {
         book_start_index: 0,
         log_file_name: Some("racetrack.log".to_string()),
         komi: Komi::default(),
+        tournament_type: TournamentType::HeadToHead,
     };
 
     if let Err(err) = &cli_options {
@@ -68,7 +70,7 @@ fn shuffle_book_test() {
         size: 5,
         concurrency: 1,
         games: 100,
-        engines: [
+        engines: vec![
             CliEngine {
                 path: "tiltak".to_string(),
                 cli_args: None,
@@ -91,6 +93,7 @@ fn shuffle_book_test() {
         book_start_index: 9,
         log_file_name: None,
         komi: Komi::from_half_komi(5).unwrap(),
+        tournament_type: TournamentType::HeadToHead,
     };
 
     if let Err(err) = &cli_options {
@@ -112,7 +115,7 @@ fn asymmetric_tc_test() {
         size: 6,
         concurrency: 1,
         games: 10,
-        engines: [
+        engines: vec![
             CliEngine {
                 path: "tiltak".to_string(),
                 cli_args: None,
@@ -135,6 +138,7 @@ fn asymmetric_tc_test() {
         book_start_index: 0,
         log_file_name: None,
         komi: Komi::from_half_komi(4).unwrap(),
+        tournament_type: TournamentType::HeadToHead,
     };
 
     if let Err(err) = &cli_options {

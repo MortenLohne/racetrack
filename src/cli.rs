@@ -1,9 +1,10 @@
 use crate::{
     openings::{self, BookFormat},
+    tournament::TournamentType,
     uci::parser,
 };
 use clap::{self, Arg, ArgAction, Command};
-use std::{convert::TryInto, env, ffi::OsString, process, time::Duration};
+use std::{env, ffi::OsString, num::NonZeroUsize, process, time::Duration};
 use tiltak::position::Komi;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -11,7 +12,7 @@ pub struct CliOptions {
     pub size: usize,
     pub concurrency: usize,
     pub games: usize,
-    pub engines: [CliEngine; 2],
+    pub engines: Vec<CliEngine>,
     pub pgnout: Option<String>,
     pub book_path: Option<String>,
     pub book_format: openings::BookFormat,
@@ -19,6 +20,7 @@ pub struct CliOptions {
     pub book_start_index: usize,
     pub log_file_name: Option<String>,
     pub komi: Komi,
+    pub tournament_type: TournamentType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,7 +138,14 @@ pub fn parse_cli_arguments_from(
             .default_value("0")
             .value_parser(|input: &str| {
                 input.parse::<Komi>()
-            }),
+            }))
+        .arg(Arg::new("format")
+            .long("format")
+            .help("Choose tournament format.")
+            .num_args(1)
+            .allow_hyphen_values(true)
+            .default_value("head-to-head")
+            .value_parser(clap::builder::PossibleValuesParser::new(["head-to-head", "gauntlet"]))
         )
         .try_get_matches_from(itr)?;
 
@@ -245,17 +254,30 @@ pub fn parse_cli_arguments_from(
     }
     println!();
 
-    if engines.len() != 2 {
-        if engines.is_empty() {
-            eprintln!("Error: No engines added to tournament, use the --engine argument",);
-        } else {
-            eprintln!(
-                "Error: Got {} engines, only exactly 2 is supported",
-                engines.len()
-            );
-        }
+    if engines.is_empty() {
+        eprintln!("Error: No engines added to tournament, use the --engine argument",);
         process::exit(1);
     }
+
+    let tournament_type = match (
+        matches.get_one::<String>("format").unwrap().as_str(),
+        engines.len(),
+    ) {
+        ("head-to-head", 2) => TournamentType::HeadToHead,
+        ("head-to-head", n) => {
+            eprintln!(
+                "Error: Got {} engines, exactly 2 is required for a head-to-head tournament",
+                n
+            );
+            process::exit(1)
+        }
+        ("gauntlet", n @ 2..) => TournamentType::Gauntlet(NonZeroUsize::new(n - 1).unwrap()),
+        ("gauntlet", n) => {
+            eprintln!("Error: Got {} engines, at least 2 is required", n);
+            process::exit(1);
+        }
+        (s, _) => panic!("Unsupported tournament format {}", s),
+    };
 
     let book_format = match matches.get_one::<String>("book-format").unwrap().as_str() {
         "move-list" => BookFormat::MoveList,
@@ -268,7 +290,7 @@ pub fn parse_cli_arguments_from(
         size: *matches.get_one::<u64>("size").unwrap() as usize,
         concurrency: *matches.get_one::<u64>("concurrency").unwrap() as usize,
         games: *matches.get_one::<usize>("games").unwrap(),
-        engines: engines.try_into().unwrap(),
+        engines,
         pgnout: matches.get_one("file").cloned(),
         book_path: matches.get_one("book").cloned(),
         book_format,
@@ -276,5 +298,6 @@ pub fn parse_cli_arguments_from(
         book_start_index: *matches.get_one::<u64>("book-start").unwrap_or(&1) as usize - 1,
         log_file_name: matches.get_one::<String>("log").cloned(),
         komi: *matches.get_one::<Komi>("komi").unwrap(),
+        tournament_type,
     })
 }
