@@ -392,22 +392,6 @@ fn print_head_to_head_score(
 }
 
 pub(crate) struct Worker {
-    id: usize,
-    engines: Vec<Engine>,
-}
-
-impl Worker {
-    pub(crate) fn get_engines(
-        &mut self,
-        white_id: EngineId,
-        black_id: EngineId,
-    ) -> Option<(&mut Engine, &mut Engine)> {
-        if white_id == black_id {
-            None
-        } else {
-            let white_ptr: *mut Engine = &mut self.engines[white_id.0];
-            let black_ptr: *mut Engine = &mut self.engines[black_id.0];
-            unsafe { Some((&mut *white_ptr, &mut *black_ptr)) }
-        }
-    }
+    pub id: usize,
+    pub engines: Vec<Engine>,
 }

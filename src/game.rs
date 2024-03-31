@@ -38,10 +38,8 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         let mut position =
             B::from_fen_with_settings(&self.opening.root_position.to_fen(), position_settings)
                 .unwrap();
-
-        let (mut white, mut black) = worker
-            .get_engines(self.white_engine_id, self.black_engine_id)
-            .unwrap();
+        let white = self.white_engine_id.0;
+        let black = self.black_engine_id.0;
 
         let mut moves: Vec<PtnMove<B::Move>> = self
             .opening
@@ -58,19 +56,25 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             position.do_move(mv.clone());
         }
 
-        white.uci_write_line(&format!("teinewgame {}", self.size))?;
-        white.uci_write_line("isready")?;
-        black.uci_write_line(&format!("teinewgame {}", self.size))?;
-        black.uci_write_line("isready")?;
+        worker.engines[white].uci_write_line(&format!("teinewgame {}", self.size))?;
+        worker.engines[white].uci_write_line("isready")?;
 
-        while white.uci_read_line()?.trim() != "readyok" {}
-        while black.uci_read_line()?.trim() != "readyok" {}
+        // White and black can be the same engine for the book-analysis tournament format
+        if self.white_engine_id != self.black_engine_id {
+            worker.engines[black].uci_write_line(&format!("teinewgame {}", self.size))?;
+            worker.engines[black].uci_write_line("isready")?;
+        }
 
-        let mut white_time = white.builder().game_time;
-        let mut black_time = black.builder().game_time;
+        while worker.engines[white].uci_read_line()?.trim() != "readyok" {}
+        if self.white_engine_id != self.black_engine_id {
+            while worker.engines[black].uci_read_line()?.trim() != "readyok" {}
+        }
 
-        let white_inc = white.builder().increment;
-        let black_inc = black.builder().increment;
+        let mut white_time = worker.engines[white].builder().game_time;
+        let mut black_time = worker.engines[black].builder().game_time;
+
+        let white_inc = worker.engines[white].builder().increment;
+        let black_inc = worker.engines[black].builder().increment;
 
         let (result, result_description) = loop {
             // TODO: Choose max game length
@@ -86,8 +90,8 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 break (result, String::new());
             }
             let engine_to_move = match position.side_to_move() {
-                Color::White => &mut white,
-                Color::Black => &mut black,
+                Color::White => &mut worker.engines[white],
+                Color::Black => &mut worker.engines[black],
             };
 
             let start_time_for_move = Instant::now();
@@ -121,24 +125,24 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 &go_string,
             ) {
                 Ok(mv) => mv,
-                Err(err) => {
+                Err(err)
                     if err.kind() == io::ErrorKind::UnexpectedEof
-                        || err.kind() == io::ErrorKind::BrokenPipe
-                    {
-                        warn!("{} {} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), thread::current().name().unwrap_or_default(), self.round_number);
-                        engine_to_move.restart()?;
-                        break (
-                            Some(forfeit_win_str(!position.side_to_move())),
-                            format!("{} disconnected or crashed", position.side_to_move()),
-                        );
-                    } else {
-                        error!(
-                            "Fatal io error from {} during game {}",
-                            engine_to_move.name(),
-                            self.round_number
-                        );
-                        return Err(err);
-                    }
+                        || err.kind() == io::ErrorKind::BrokenPipe =>
+                {
+                    warn!("{} {} disconnected or crashed during game {}. Game is counted as a loss, engine will be restarted.", engine_to_move.name(), thread::current().name().unwrap_or_default(), self.round_number);
+                    engine_to_move.restart()?;
+                    break (
+                        Some(forfeit_win_str(!position.side_to_move())),
+                        format!("{} disconnected or crashed", position.side_to_move()),
+                    );
+                }
+                Err(err) => {
+                    error!(
+                        "Fatal io error from {} during game {}",
+                        engine_to_move.name(),
+                        self.round_number
+                    );
+                    return Err(err);
                 }
             };
 
@@ -204,8 +208,14 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         let mut tags = vec![
             ("Site".to_string(), "Racetrack".to_string()),
-            ("Player1".to_string(), white.name().to_string()),
-            ("Player2".to_string(), black.name().to_string()),
+            (
+                "Player1".to_string(),
+                worker.engines[white].name().to_string(),
+            ),
+            (
+                "Player2".to_string(),
+                worker.engines[black].name().to_string(),
+            ),
             ("Round".to_string(), (self.round_number + 1).to_string()),
             ("Size".to_string(), self.size.to_string()),
             (
@@ -214,22 +224,24 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             ),
             (
                 "Clock".to_string(),
-                if white.builder().game_time == black.builder().game_time && white_inc == black_inc
+                if worker.engines[white].builder().game_time
+                    == worker.engines[black].builder().game_time
+                    && white_inc == black_inc
                 {
                     format!(
                         "{}:{} +{:.1}",
-                        white.builder().game_time.as_secs() / 60,
-                        white.builder().game_time.as_secs() % 60,
+                        worker.engines[white].builder().game_time.as_secs() / 60,
+                        worker.engines[white].builder().game_time.as_secs() % 60,
                         white_inc.as_secs_f32()
                     )
                 } else {
                     format!(
                         "{}:{} +{:.1} vs {}:{} +{:.1}",
-                        white.builder().game_time.as_secs() / 60,
-                        white.builder().game_time.as_secs() % 60,
+                        worker.engines[white].builder().game_time.as_secs() / 60,
+                        worker.engines[white].builder().game_time.as_secs() % 60,
                         white_inc.as_secs_f32(),
-                        black.builder().game_time.as_secs() / 60,
-                        black.builder().game_time.as_secs() % 60,
+                        worker.engines[black].builder().game_time.as_secs() / 60,
+                        worker.engines[black].builder().game_time.as_secs() % 60,
                         black_inc.as_secs_f32()
                     )
                 },
@@ -237,7 +249,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         ];
 
         // Write Komi tag for non-zero komi
-        if let Some((_, komi_value_string)) = white
+        if let Some((_, komi_value_string)) = worker.engines[white]
             .builder()
             .desired_uci_options
             .iter()
