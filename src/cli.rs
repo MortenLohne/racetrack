@@ -141,7 +141,7 @@ pub fn parse_cli_arguments_from(
             }))
         .arg(Arg::new("format")
             .long("format")
-            .help("Choose tournament format.")
+            .help("Choose tournament format. See the README for details.")
             .num_args(1)
             .allow_hyphen_values(true)
             .default_value("round-robin")

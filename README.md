@@ -50,6 +50,20 @@ To play two games between [Tiltak](https://github.com/MortenLohne/tiltak) and [T
 racetrack --engine path=tiltak --engine path=topaz option.NN=topaz.txt --games 2 --komi 2 --all-engines tc=180+3
 ```
 
+To play an engine against itself, use the `book-test` tournament format:
+
+```
+racetrack -g 1 -s 6 --engine path=tiltak --all-engines tc=30+0.3 --format book-test
+```
+
+### Tournament formats
+
+Racetrack supports 3 different tournament formats via the `--format` argument:
+
+- **Round robin** (default): Every engine plays every other engine with both colors. Each opening is played with both colors by every pair of engines.
+- **Book test**: Same as round robin, but the engines also plays each opening against themselves. This tournament format can be played with only one engine.
+- **Gauntlet**: Requires 3 or more engines. The first engine is the "champion", and takes turns playing the other engines. The challengers never play each other.
+
 ## Notes for engine developers
 
 - Use the `--log` argument to print a full log of TEI communications for debugging.
