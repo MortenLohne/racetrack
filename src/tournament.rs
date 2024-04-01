@@ -15,7 +15,6 @@ use tiltak::ptn::Game;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TournamentType {
-    HeadToHead,
     Gauntlet(NonZeroUsize),
     RoundRobin(usize),
     BookTest(usize),
@@ -24,7 +23,6 @@ pub enum TournamentType {
 impl TournamentType {
     pub fn num_engines(self) -> usize {
         match self {
-            TournamentType::HeadToHead => 2,
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() + 1,
             TournamentType::RoundRobin(num_engines) => num_engines,
             TournamentType::BookTest(num_engines) => num_engines,
@@ -34,7 +32,6 @@ impl TournamentType {
     /// Number of games before every pair of opponents has played a round
     pub fn alignment(self) -> usize {
         match self {
-            TournamentType::HeadToHead => 2,
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() * 2,
             TournamentType::RoundRobin(num_engines) => num_engines * (num_engines - 1),
             TournamentType::BookTest(num_engines) => num_engines * num_engines,
@@ -64,18 +61,6 @@ impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
 impl<B: PgnPosition + Clone> TournamentSettings<B> {
     pub fn schedule(&self) -> Vec<ScheduledGame<B>> {
         match self.tournament_type {
-            TournamentType::HeadToHead => (0..self.num_games)
-                .map(|round_number| ScheduledGame {
-                    round_number,
-                    opening: self.openings[(self.openings_start_index
-                        + round_number / self.tournament_type.alignment())
-                        % self.openings.len()]
-                    .clone(),
-                    white_engine_id: EngineId(round_number % 2),
-                    black_engine_id: EngineId((round_number + 1) % 2),
-                    size: self.size,
-                })
-                .collect(),
             TournamentType::Gauntlet(num_challengers) => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
@@ -377,7 +362,7 @@ where
         assert_eq!(draws, engine_draws.iter().flatten().sum::<u64>() / 2);
 
         match self.tournament_type {
-            TournamentType::HeadToHead | TournamentType::RoundRobin(2) => {
+            TournamentType::RoundRobin(2) => {
                 print_head_to_head_score(&engine_wins, &engine_draws, engine_names, 0, 1)
             }
             // For gauntlet tournament, prints the challengers' scores vs the champion,

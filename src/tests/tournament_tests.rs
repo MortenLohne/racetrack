@@ -32,9 +32,9 @@ fn dummy_tournament(
 }
 
 #[test]
-fn head_to_head_test() {
+fn two_engines_round_robin_test() {
     let head_to_head_settings: TournamentSettings<Position<6>> =
-        dummy_tournament(12, TournamentType::HeadToHead);
+        dummy_tournament(12, TournamentType::RoundRobin(2));
 
     let head_to_head_games = head_to_head_settings.schedule();
 
@@ -87,22 +87,6 @@ fn head_to_head_test() {
 }
 
 #[test]
-fn single_gauntlet_test() {
-    let head_to_head_settings: TournamentSettings<Position<6>> =
-        dummy_tournament(12, TournamentType::HeadToHead);
-    let head_to_head_games = head_to_head_settings.schedule();
-
-    let gauntlet_settings: TournamentSettings<Position<6>> =
-        dummy_tournament(12, TournamentType::Gauntlet(NonZeroUsize::new(1).unwrap()));
-    let gauntlet_games = gauntlet_settings.schedule();
-
-    // A gauntlet with one challenger is just a head-to-head tournament
-    for (head_to_head, gauntlet) in head_to_head_games.iter().zip(gauntlet_games.iter()) {
-        assert_eq!(head_to_head, gauntlet);
-    }
-}
-
-#[test]
 fn double_gauntlet_test() {
     let gauntlet_settings: TournamentSettings<Position<6>> =
         dummy_tournament(24, TournamentType::Gauntlet(NonZeroUsize::new(2).unwrap()));
@@ -146,22 +130,6 @@ fn double_gauntlet_test() {
             .count(),
         gauntlet_games.len() / 4
     );
-}
-
-#[test]
-fn round_robin_two_engines_test() {
-    let head_to_head_settings: TournamentSettings<Position<6>> =
-        dummy_tournament(24, TournamentType::HeadToHead);
-    let head_to_head_games = head_to_head_settings.schedule();
-
-    let round_robin_settings: TournamentSettings<Position<6>> =
-        dummy_tournament(24, TournamentType::RoundRobin(2));
-    let gauntlet_games = round_robin_settings.schedule();
-
-    // A gauntlet with one challenger is just a head-to-head tournament
-    for (head_to_head, round_robin) in head_to_head_games.iter().zip(gauntlet_games.iter()) {
-        assert_eq!(head_to_head, round_robin);
-    }
 }
 
 #[test]

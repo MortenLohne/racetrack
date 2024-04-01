@@ -144,8 +144,8 @@ pub fn parse_cli_arguments_from(
             .help("Choose tournament format.")
             .num_args(1)
             .allow_hyphen_values(true)
-            .default_value("head-to-head")
-            .value_parser(clap::builder::PossibleValuesParser::new(["head-to-head", "gauntlet", "round-robin", "book-test"]))
+            .default_value("round-robin")
+            .value_parser(clap::builder::PossibleValuesParser::new(["gauntlet", "round-robin", "book-test"]))
         )
         .try_get_matches_from(itr)?;
 
@@ -263,14 +263,6 @@ pub fn parse_cli_arguments_from(
         matches.get_one::<String>("format").unwrap().as_str(),
         engines.len(),
     ) {
-        ("head-to-head", 2) => TournamentType::HeadToHead,
-        ("head-to-head", n) => {
-            eprintln!(
-                "Error: Got {} engines, exactly 2 is required for a head-to-head tournament",
-                n
-            );
-            process::exit(1)
-        }
         ("gauntlet", n @ 2..) => TournamentType::Gauntlet(NonZeroUsize::new(n - 1).unwrap()),
         ("gauntlet", n) => {
             eprintln!("Error: Got {} engines, at least 2 is required", n);
@@ -293,7 +285,6 @@ pub fn parse_cli_arguments_from(
 
     if num_games % tournament_type.alignment() != 0 {
         let format_name = match tournament_type {
-            TournamentType::HeadToHead => "head-to-head",
             TournamentType::Gauntlet(_) => "gauntlet",
             TournamentType::RoundRobin(_) => "round robin",
             TournamentType::BookTest(_) => "book-test",

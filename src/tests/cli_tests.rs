@@ -48,7 +48,7 @@ fn cli_test() {
         book_start_index: 0,
         log_file_name: Some("racetrack.log".to_string()),
         komi: Komi::default(),
-        tournament_type: TournamentType::HeadToHead,
+        tournament_type: TournamentType::RoundRobin(2),
     };
 
     if let Err(err) = &cli_options {
@@ -93,7 +93,7 @@ fn shuffle_book_test() {
         book_start_index: 9,
         log_file_name: None,
         komi: Komi::from_half_komi(5).unwrap(),
-        tournament_type: TournamentType::HeadToHead,
+        tournament_type: TournamentType::RoundRobin(2),
     };
 
     if let Err(err) = &cli_options {
@@ -138,7 +138,7 @@ fn asymmetric_tc_test() {
         book_start_index: 0,
         log_file_name: None,
         komi: Komi::from_half_komi(4).unwrap(),
-        tournament_type: TournamentType::HeadToHead,
+        tournament_type: TournamentType::RoundRobin(2),
     };
 
     if let Err(err) = &cli_options {
