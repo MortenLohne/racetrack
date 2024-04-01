@@ -1,5 +1,6 @@
 use crate::exit_with_error;
 use pgn_traits::PgnPosition;
+use std::fmt;
 use std::fs;
 use std::io;
 use std::io::BufRead;
@@ -12,10 +13,18 @@ pub enum BookFormat {
     MoveList,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Opening<B: PgnPosition> {
     pub root_position: B,
     pub moves: Vec<B::Move>,
+}
+
+impl<B: PgnPosition + fmt::Debug> fmt::Debug for Opening<B> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Opening")
+            .field("moves", &self.moves)
+            .finish()
+    }
 }
 
 pub fn openings_from_file<B: PgnPosition>(

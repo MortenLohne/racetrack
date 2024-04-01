@@ -145,7 +145,7 @@ pub fn parse_cli_arguments_from(
             .num_args(1)
             .allow_hyphen_values(true)
             .default_value("head-to-head")
-            .value_parser(clap::builder::PossibleValuesParser::new(["head-to-head", "gauntlet"]))
+            .value_parser(clap::builder::PossibleValuesParser::new(["head-to-head", "gauntlet", "round-robin", "book-test"]))
         )
         .try_get_matches_from(itr)?;
 
@@ -276,8 +276,34 @@ pub fn parse_cli_arguments_from(
             eprintln!("Error: Got {} engines, at least 2 is required", n);
             process::exit(1);
         }
+        ("round-robin", n @ 2..) => TournamentType::RoundRobin(n),
+        ("round-robin", n) => {
+            eprintln!("Error: Got {} engines, at least 2 is required", n);
+            process::exit(1);
+        }
+        ("book-test", n @ 1..) => TournamentType::BookTest(n),
+        ("book-test", n) => {
+            eprintln!("Error: Got {} engines, at least 1 is required", n);
+            process::exit(1);
+        }
         (s, _) => panic!("Unsupported tournament format {}", s),
     };
+
+    let num_games = *matches.get_one::<usize>("games").unwrap();
+
+    if num_games % tournament_type.alignment() != 0 {
+        let format_name = match tournament_type {
+            TournamentType::HeadToHead => "head-to-head",
+            TournamentType::Gauntlet(_) => "gauntlet",
+            TournamentType::RoundRobin(_) => "round robin",
+            TournamentType::BookTest(_) => "book-test",
+        };
+        eprintln!(
+            "Warning: The tournament will not give all engines an equal number of white and black games.\nFor a {} tournament with {} engines, the total number of games must be divisible by {}",
+            format_name, tournament_type.num_engines(), tournament_type.alignment()
+        );
+        eprintln!();
+    }
 
     let book_format = match matches.get_one::<String>("book-format").unwrap().as_str() {
         "move-list" => BookFormat::MoveList,
@@ -289,7 +315,7 @@ pub fn parse_cli_arguments_from(
     Ok(CliOptions {
         size: *matches.get_one::<u64>("size").unwrap() as usize,
         concurrency: *matches.get_one::<u64>("concurrency").unwrap() as usize,
-        games: *matches.get_one::<usize>("games").unwrap(),
+        games: num_games,
         engines,
         pgnout: matches.get_one("file").cloned(),
         book_path: matches.get_one("book").cloned(),

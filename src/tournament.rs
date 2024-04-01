@@ -17,6 +17,8 @@ use tiltak::ptn::Game;
 pub enum TournamentType {
     HeadToHead,
     Gauntlet(NonZeroUsize),
+    RoundRobin(usize),
+    BookTest(usize),
 }
 
 impl TournamentType {
@@ -24,6 +26,18 @@ impl TournamentType {
         match self {
             TournamentType::HeadToHead => 2,
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() + 1,
+            TournamentType::RoundRobin(num_engines) => num_engines,
+            TournamentType::BookTest(num_engines) => num_engines,
+        }
+    }
+
+    /// Number of games before every pair of opponents has played a round
+    pub fn alignment(self) -> usize {
+        match self {
+            TournamentType::HeadToHead => 2,
+            TournamentType::Gauntlet(num_challengers) => num_challengers.get() * 2,
+            TournamentType::RoundRobin(num_engines) => num_engines * (num_engines - 1),
+            TournamentType::BookTest(num_engines) => num_engines * num_engines,
         }
     }
 }
@@ -53,8 +67,9 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::HeadToHead => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings
-                        [(self.openings_start_index + round_number / 2) % self.openings.len()]
+                    opening: self.openings[(self.openings_start_index
+                        + round_number / self.tournament_type.alignment())
+                        % self.openings.len()]
                     .clone(),
                     white_engine_id: EngineId(round_number % 2),
                     black_engine_id: EngineId((round_number + 1) % 2),
@@ -65,7 +80,7 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
                 .map(|round_number| ScheduledGame {
                     round_number,
                     opening: self.openings[(self.openings_start_index
-                        + round_number / (num_challengers.get() * 2))
+                        + round_number / self.tournament_type.alignment())
                         % self.openings.len()]
                     .clone(),
                     white_engine_id: if (round_number / num_challengers) % 2 == 0 {
@@ -78,6 +93,35 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
                     } else {
                         EngineId((round_number % num_challengers) + 1)
                     },
+                    size: self.size,
+                })
+                .collect(),
+            TournamentType::BookTest(num_engines) => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings[(self.openings_start_index
+                        + round_number / self.tournament_type.alignment())
+                        % self.openings.len()]
+                    .clone(),
+                    white_engine_id: EngineId((round_number / num_engines) % num_engines),
+                    black_engine_id: EngineId(round_number % num_engines),
+                    size: self.size,
+                })
+                .collect(),
+            TournamentType::RoundRobin(num_engines) => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings[(self.openings_start_index
+                        + round_number / (num_engines * (num_engines - 1)))
+                        % self.openings.len()]
+                    .clone(),
+                    white_engine_id: EngineId((round_number / (num_engines - 1)) % num_engines),
+                    black_engine_id: EngineId(
+                        (round_number
+                            + (round_number % (num_engines * (num_engines - 1))) / num_engines
+                            + 1)
+                            % num_engines,
+                    ),
                     size: self.size,
                 })
                 .collect(),
@@ -270,6 +314,8 @@ where
         // Each engine's number of draws vs each other engine
         let mut engine_draws: Vec<Vec<u64>> =
             vec![vec![0; self.tournament_type.num_engines()]; self.tournament_type.num_engines()];
+        let mut engine_losses: Vec<Vec<u64>> =
+            vec![vec![0; self.tournament_type.num_engines()]; self.tournament_type.num_engines()];
 
         let mut white_wins = 0;
         let mut black_wins = 0;
@@ -285,11 +331,15 @@ where
                 Some(WhiteWin) => {
                     engine_wins[scheduled_game.white_engine_id.0]
                         [scheduled_game.black_engine_id.0] += 1;
+                    engine_losses[scheduled_game.black_engine_id.0]
+                        [scheduled_game.white_engine_id.0] += 1;
                     white_wins += 1;
                 }
                 Some(BlackWin) => {
                     engine_wins[scheduled_game.black_engine_id.0]
                         [scheduled_game.white_engine_id.0] += 1;
+                    engine_losses[scheduled_game.white_engine_id.0]
+                        [scheduled_game.black_engine_id.0] += 1;
                     black_wins += 1;
                 }
 
@@ -316,6 +366,10 @@ where
             finished_games.iter().flatten().count() as u64
         );
         assert_eq!(
+            engine_losses.iter().flatten().sum::<u64>() + draws,
+            finished_games.iter().flatten().count() as u64
+        );
+        assert_eq!(
             white_wins + black_wins + draws,
             finished_games.iter().flatten().count() as u64
         );
@@ -323,7 +377,7 @@ where
         assert_eq!(draws, engine_draws.iter().flatten().sum::<u64>() / 2);
 
         match self.tournament_type {
-            TournamentType::HeadToHead => {
+            TournamentType::HeadToHead | TournamentType::RoundRobin(2) => {
                 print_head_to_head_score(&engine_wins, &engine_draws, engine_names, 0, 1)
             }
             // For gauntlet tournament, prints the challengers' scores vs the champion,
@@ -339,6 +393,32 @@ where
                     )
                 }
             }
+            TournamentType::RoundRobin(num_engines)
+            | TournamentType::BookTest(num_engines @ 2..) => {
+                println!(
+                    "{:16} {:>4} {:>4} {:>4} {:>7}",
+                    "Name", "+", "-", "=", "Score"
+                );
+                for id in 0..num_engines {
+                    // The engine's results against every engine except itself:
+                    let num_wins = engine_wins[id].iter().sum::<u64>() - engine_wins[id][id];
+                    let num_draws: u64 =
+                        engine_draws[id].iter().sum::<u64>() - engine_draws[id][id];
+                    let num_losses: u64 =
+                        engine_losses[id].iter().sum::<u64>() - engine_losses[id][id];
+                    let num_games = num_wins + num_draws + num_losses;
+
+                    println!(
+                        "{:16} {:4} {:4} {:4} {:>6.1}%",
+                        engine_names[id],
+                        num_wins,
+                        num_losses,
+                        num_draws,
+                        100.0 * (num_wins as f32 + num_draws as f32 / 2.0) / num_games as f32
+                    );
+                }
+            }
+            TournamentType::BookTest(_) => (),
         }
     }
 
