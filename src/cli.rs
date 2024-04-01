@@ -263,9 +263,9 @@ pub fn parse_cli_arguments_from(
         matches.get_one::<String>("format").unwrap().as_str(),
         engines.len(),
     ) {
-        ("gauntlet", n @ 2..) => TournamentType::Gauntlet(NonZeroUsize::new(n - 1).unwrap()),
+        ("gauntlet", n @ 3..) => TournamentType::Gauntlet(NonZeroUsize::new(n - 1).unwrap()),
         ("gauntlet", n) => {
-            eprintln!("Error: Got {} engines, at least 2 is required", n);
+            eprintln!("Error: Got {} engines, at least 3 is required", n);
             process::exit(1);
         }
         ("round-robin", n @ 2..) => TournamentType::RoundRobin(n),
@@ -290,7 +290,7 @@ pub fn parse_cli_arguments_from(
             TournamentType::BookTest(_) => "book-test",
         };
         eprintln!(
-            "Warning: The tournament will not give all engines an equal number of white and black games.\nFor a {} tournament with {} engines, the total number of games must be divisible by {}",
+            "Warning: The tournament will not give all engines an equal number of white and black games.\nFor a {} tournament with {} engines, the total number of games should be divisible by {}",
             format_name, tournament_type.num_engines(), tournament_type.alignment()
         );
         eprintln!();
