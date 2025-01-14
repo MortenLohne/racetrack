@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-// This is an implementation of GSPRT under a pentanominal model.
+// This is an implementation of GSPRT under a pentanomial model.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PentanomialResult {
