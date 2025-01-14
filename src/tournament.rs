@@ -421,7 +421,8 @@ where
                 let penta = Self::sprt_penta_stats(&finished_games);
                 print_head_to_head_score(&engine_wins, &engine_draws, engine_names, 0, 1);
                 println!("Penta(0-2): {} {} {} {} {}", penta.ll, penta.dl, penta.dd + penta.wl, penta.wd, penta.ww);
-                println!("{:?}", penta.to_pdf())
+                println!("{:?}", penta.to_pdf());
+                println!("{:?}", penta.to_mean_and_variance());
             },
         }
     }
