@@ -443,8 +443,6 @@ where
                 println!("Penta(0-2)  : {}, {}, {}, {}, {}", penta.ll, penta.dl, penta.dd + penta.wl, penta.wd, penta.ww);
 
                 if let Some(sprt) = self.sprt {
-                    println!("{:?}", penta.to_mean_and_variance());
-
                     let (elo0, elo1) = sprt.elo_bounds();
                     let (lower_bound, upper_bound) = sprt.llr_bounds();
                     let llr = sprt.llr(penta);

@@ -40,7 +40,7 @@ impl SprtParameters {
         (self.elo0, self.elo1)
     }
 
-    // Approximate formula for the log-likelihood ratio for the given pentanomal result.
+    // Approximate formula for the log-likelihood ratio for the given pentanomial result.
     // See section 4.2 of https://archive.org/details/fishtest_mathematics/normalized_elo_practical/
     // Many thanks to Michel Van den Bergh.
     pub fn llr(self: SprtParameters, penta: PentanomialResult) -> f64 {
@@ -55,16 +55,17 @@ impl SprtParameters {
 
 impl PentanomialResult {
     pub fn to_pdf(self: PentanomialResult) -> (f64, [f64; 5]) {
-        let regularize = 1e-2;
         let penta = [
-            self.ll as f64 + regularize,
-            self.dl as f64 + regularize,
-            self.dd as f64 + self.wl as f64 + regularize,
-            self.wd as f64 + regularize,
-            self.ww as f64 + regularize,
+            self.ll as f64,
+            self.dl as f64,
+            self.dd as f64 + self.wl as f64,
+            self.wd as f64,
+            self.ww as f64,
         ];
+        let zeros = penta.iter().filter(|&x| *x == 0.0).count();
+        let regularisation = if zeros > 0 { 2.0 / zeros as f64 } else { 0.0 };
         let n: f64 = penta.iter().sum();
-        (n, penta.iter().map(|x| x / n).collect::<Vec<_>>().try_into().unwrap())
+        (n, penta.iter().map(|x| (x + regularisation) / n).collect::<Vec<_>>().try_into().unwrap())
     }
 
     pub fn to_mean_and_variance(self: PentanomialResult) -> (f64, f64, f64) {
