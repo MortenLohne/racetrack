@@ -323,7 +323,10 @@ pub fn parse_cli_arguments_from(
         match tournament_type {
             TournamentType::Sprt => {}
             _ => {
-                eprintln!("Error: sprt option present but tournament type is {:?}", tournament_type);
+                eprintln!(
+                    "Error: sprt option present but tournament type is {:?}",
+                    tournament_type
+                );
                 process::exit(1);
             }
         }
@@ -336,13 +339,29 @@ pub fn parse_cli_arguments_from(
         for option in sprt_options {
             if let Some((arg, value)) = option.split_once('=') {
                 match arg {
-                    "elo0" if elo0.is_some() => panic!("Duplicate elo0 arguments \"{}\" and \"{}\" for sprt", elo0.unwrap(), value),
+                    "elo0" if elo0.is_some() => panic!(
+                        "Duplicate elo0 arguments \"{}\" and \"{}\" for sprt",
+                        elo0.unwrap(),
+                        value
+                    ),
                     "elo0" => elo0 = Some(value),
-                    "elo1" if elo1.is_some() => panic!("Duplicate elo1 arguments \"{}\" and \"{}\" for sprt", elo1.unwrap(), value),
+                    "elo1" if elo1.is_some() => panic!(
+                        "Duplicate elo1 arguments \"{}\" and \"{}\" for sprt",
+                        elo1.unwrap(),
+                        value
+                    ),
                     "elo1" => elo1 = Some(value),
-                    "alpha" if alpha.is_some() => panic!("Duplicate alpha arguments \"{}\" and \"{}\" for sprt", alpha.unwrap(), value),
+                    "alpha" if alpha.is_some() => panic!(
+                        "Duplicate alpha arguments \"{}\" and \"{}\" for sprt",
+                        alpha.unwrap(),
+                        value
+                    ),
                     "alpha" => alpha = Some(value),
-                    "beta" if beta.is_some() => panic!("Duplicate beta arguments \"{}\" and \"{}\" for sprt", beta.unwrap(), value),
+                    "beta" if beta.is_some() => panic!(
+                        "Duplicate beta arguments \"{}\" and \"{}\" for sprt",
+                        beta.unwrap(),
+                        value
+                    ),
                     "beta" => beta = Some(value),
                     _ => {
                         eprintln!("Error: unknown argument {} for sprt", option);

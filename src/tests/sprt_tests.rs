@@ -10,7 +10,14 @@ fn sprt_threshold_test() {
         (175, 305, 694, 291, 157, 0.0, 10.0, Some(false)),
     ];
     for (ll, dl, wl, wd, ww, elo0, elo1, expected_result) in examples {
-        let penta = PentanomialResult{ ll, dl, wl, wd, ww, dd: 0 };
+        let penta = PentanomialResult {
+            ll,
+            dl,
+            wl,
+            wd,
+            ww,
+            dd: 0,
+        };
         let sprt = SprtParameters::new(elo0, elo1, 0.05, 0.10);
         let llr = sprt.llr(penta);
         let (lower_bound, upper_bound) = sprt.llr_bounds();
@@ -34,7 +41,14 @@ fn sprt_llr_test() {
         (98, 382, 674, 369, 71, -5.0, 0.0, -1.11),
     ];
     for (ll, dl, wl, wd, ww, elo0, elo1, expected_llr) in examples {
-        let penta = PentanomialResult{ ll, dl, wl, wd, ww, dd: 0 };
+        let penta = PentanomialResult {
+            ll,
+            dl,
+            wl,
+            wd,
+            ww,
+            dd: 0,
+        };
         let sprt = SprtParameters::new(elo0, elo1, 0.05, 0.10);
         let llr = sprt.llr(penta);
         let error = f64::abs(llr - expected_llr);

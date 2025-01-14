@@ -29,7 +29,14 @@ impl SprtParameters {
         let upper_bound = f64::ln((1.0 - beta) / alpha);
         let t0 = elo0 / c_et;
         let t1 = elo1 / c_et;
-        SprtParameters{ lower_bound, upper_bound, elo0, elo1, t0, t1 }
+        SprtParameters {
+            lower_bound,
+            upper_bound,
+            elo0,
+            elo1,
+            t0,
+            t1,
+        }
     }
 
     pub fn llr_bounds(self: SprtParameters) -> (f64, f64) {
@@ -65,14 +72,26 @@ impl PentanomialResult {
         let zeros = penta.iter().filter(|&x| *x == 0.0).count();
         let regularisation = if zeros > 0 { 2.0 / zeros as f64 } else { 0.0 };
         let n: f64 = penta.iter().sum();
-        (n, penta.iter().map(|x| (x + regularisation) / n).collect::<Vec<_>>().try_into().unwrap())
+        (
+            n,
+            penta
+                .iter()
+                .map(|x| (x + regularisation) / n)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        )
     }
 
     pub fn to_mean_and_variance(self: PentanomialResult) -> (f64, f64, f64) {
         let scores = [0.0, 0.25, 0.5, 0.75, 1.0];
         let (n, pdf) = self.to_pdf();
         let mean: f64 = pdf.iter().zip(scores).map(|(p, s)| p * s).sum();
-        let variance: f64 = pdf.iter().zip(scores).map(|(p, s)| p * (s - mean).powf(2.0)).sum();
+        let variance: f64 = pdf
+            .iter()
+            .zip(scores)
+            .map(|(p, s)| p * (s - mean).powf(2.0))
+            .sum();
         (n, mean, variance)
     }
 }

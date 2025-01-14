@@ -118,7 +118,9 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::Sprt => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings[(self.openings_start_index + round_number / 2) % self.openings.len()].clone(),
+                    opening: self.openings
+                        [(self.openings_start_index + round_number / 2) % self.openings.len()]
+                    .clone(),
                     white_engine_id: EngineId(round_number % 2),
                     black_engine_id: EngineId((round_number + 1) % 2),
                     size: self.size,
@@ -436,11 +438,24 @@ where
                 let lower_elo = simulation::to_elo_string(lower);
                 let expected_elo = simulation::to_elo_string(expected);
                 let upper_elo = simulation::to_elo_string(upper);
-                println!("Elo         : {} [{}, {}] (95%)", expected_elo, lower_elo, upper_elo);
-                println!("WDL         : W: {}, D: {}, L: {}", score.wins, score.draws, score.losses);
+                println!(
+                    "Elo         : {} [{}, {}] (95%)",
+                    expected_elo, lower_elo, upper_elo
+                );
+                println!(
+                    "WDL         : W: {}, D: {}, L: {}",
+                    score.wins, score.draws, score.losses
+                );
 
                 let penta = Self::sprt_penta_stats(&finished_games);
-                println!("Penta(0-2)  : {}, {}, {}, {}, {}", penta.ll, penta.dl, penta.dd + penta.wl, penta.wd, penta.ww);
+                println!(
+                    "Penta(0-2)  : {}, {}, {}, {}, {}",
+                    penta.ll,
+                    penta.dl,
+                    penta.dd + penta.wl,
+                    penta.wd,
+                    penta.ww
+                );
 
                 if let Some(sprt) = self.sprt {
                     let (elo0, elo1) = sprt.elo_bounds();
@@ -454,7 +469,10 @@ where
                     } else {
                         "".to_string()
                     };
-                    println!("LLR         : {:.2} {:10} [{:.2} {:.2}]", llr, meet, elo0, elo1);
+                    println!(
+                        "LLR         : {:.2} {:10} [{:.2} {:.2}]",
+                        llr, meet, elo0, elo1
+                    );
 
                     if llr <= lower_bound || llr >= upper_bound {
                         is_shutting_down.store(true, atomic::Ordering::SeqCst);
@@ -467,12 +485,19 @@ where
                         println!("SPRT passed");
                     }
                 }
-            },
+            }
         }
     }
 
     fn sprt_penta_stats(finished_games: &Vec<Option<Game<B>>>) -> PentanomialResult {
-        let mut result = PentanomialResult{ ww: 0, wd: 0, wl: 0, dd: 0, dl: 0, ll: 0 };
+        let mut result = PentanomialResult {
+            ww: 0,
+            wd: 0,
+            wl: 0,
+            dd: 0,
+            dl: 0,
+            ll: 0,
+        };
         for game_pair in finished_games
             .chunks(2)
             .filter(|p| p.iter().all(|g| g.is_some()))
