@@ -113,7 +113,15 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
                     size: self.size,
                 })
                 .collect(),
-            TournamentType::Sprt => todo!(),
+            TournamentType::Sprt => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings[(self.openings_start_index + round_number / 2) % self.openings.len()].clone(),
+                    white_engine_id: EngineId(round_number % 2),
+                    black_engine_id: EngineId((round_number + 1) % 2),
+                    size: self.size,
+                })
+                .collect(),
         }
     }
 }
