@@ -18,6 +18,7 @@ pub enum TournamentType {
     Gauntlet(NonZeroUsize),
     RoundRobin(usize),
     BookTest(usize),
+    Sprt,
 }
 
 impl TournamentType {
@@ -26,6 +27,7 @@ impl TournamentType {
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() + 1,
             TournamentType::RoundRobin(num_engines) => num_engines,
             TournamentType::BookTest(num_engines) => num_engines,
+            TournamentType::Sprt => 2,
         }
     }
 
@@ -35,6 +37,7 @@ impl TournamentType {
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() * 2,
             TournamentType::RoundRobin(num_engines) => num_engines * (num_engines - 1),
             TournamentType::BookTest(num_engines) => num_engines * num_engines,
+            TournamentType::Sprt => 2,
         }
     }
 }
@@ -110,6 +113,7 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
                     size: self.size,
                 })
                 .collect(),
+            TournamentType::Sprt => todo!(),
         }
     }
 }
@@ -404,6 +408,7 @@ where
                 }
             }
             TournamentType::BookTest(_) => (),
+            TournamentType::Sprt => todo!(),
         }
     }
 

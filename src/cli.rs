@@ -154,7 +154,7 @@ pub fn parse_cli_arguments_from(
             .num_args(1)
             .allow_hyphen_values(true)
             .default_value("round-robin")
-            .value_parser(clap::builder::PossibleValuesParser::new(["gauntlet", "round-robin", "book-test"]))
+            .value_parser(clap::builder::PossibleValuesParser::new(["gauntlet", "round-robin", "book-test", "sprt"]))
         )
         .arg(Arg::new("sprt-flag")
             .long("sprt")
@@ -293,6 +293,11 @@ pub fn parse_cli_arguments_from(
             eprintln!("Error: Got {} engines, at least 1 is required", n);
             process::exit(1);
         }
+        ("sprt", 2) => TournamentType::Sprt,
+        ("sprt", n) => {
+            eprintln!("Error: Got {} engines, require exactly 2", n);
+            process::exit(1);
+        }
         (s, _) => panic!("Unsupported tournament format {}", s),
     };
 
@@ -303,6 +308,7 @@ pub fn parse_cli_arguments_from(
             TournamentType::Gauntlet(_) => "gauntlet",
             TournamentType::RoundRobin(_) => "round robin",
             TournamentType::BookTest(_) => "book-test",
+            TournamentType::Sprt => "sprt",
         };
         eprintln!(
             "Warning: The tournament will not give all engines an equal number of white and black games.\nFor a {} tournament with {} engines, the total number of games should be divisible by {}",
@@ -321,6 +327,14 @@ pub fn parse_cli_arguments_from(
     let mut sprt = None;
     let sprt_options = matches.get_many::<String>("sprt-flag");
     if let Some(sprt_options) = sprt_options {
+        match tournament_type {
+            TournamentType::Sprt => {}
+            _ => {
+                eprintln!("Error: sprt option present but tournament type is {:?}", tournament_type);
+                process::exit(1);
+            }
+        }
+
         let mut elo0 = None;
         let mut elo1 = None;
         let mut alpha = None;
