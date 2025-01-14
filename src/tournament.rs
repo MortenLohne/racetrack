@@ -3,6 +3,7 @@ use crate::game::ScheduledGame;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
+use crate::sprt::PentanomialResult;
 use crate::{exit_with_error, simulation};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
@@ -416,8 +417,36 @@ where
                 }
             }
             TournamentType::BookTest(_) => (),
-            TournamentType::Sprt => todo!(),
+            TournamentType::Sprt => {
+                let penta = Self::sprt_penta_stats(&finished_games);
+                print_head_to_head_score(&engine_wins, &engine_draws, engine_names, 0, 1);
+                println!("Penta(0-2): {} {} {} {} {}", penta.ll, penta.dl, penta.dd + penta.wl, penta.wd, penta.ww);
+                println!("{:?}", penta.to_pdf())
+            },
         }
+    }
+
+    fn sprt_penta_stats(finished_games: &Vec<Option<Game<B>>>) -> PentanomialResult {
+        let mut result = PentanomialResult{ ww: 0, wd: 0, wl: 0, dd: 0, dl: 0, ll: 0 };
+        for game_pair in finished_games
+            .windows(2)
+            .filter(|p| p.iter().all(|g| g.is_some()))
+        {
+            let result1 = game_pair[0].clone().unwrap().game_result().unwrap_or(Draw);
+            let result2 = game_pair[1].clone().unwrap().game_result().unwrap_or(Draw);
+            match (result1, result2) {
+                (WhiteWin, BlackWin) => result.ww += 1,
+                (WhiteWin, Draw) => result.wd += 1,
+                (Draw, BlackWin) => result.wd += 1,
+                (WhiteWin, WhiteWin) => result.wl += 1,
+                (BlackWin, BlackWin) => result.wl += 1,
+                (Draw, Draw) => result.dd += 1,
+                (BlackWin, Draw) => result.wl += 1,
+                (Draw, WhiteWin) => result.wl += 1,
+                (BlackWin, WhiteWin) => result.ll += 1,
+            }
+        }
+        result
     }
 
     fn next_unplayed_game(&self) -> Option<ScheduledGame<B>> {

@@ -20,6 +20,7 @@ mod game;
 mod openings;
 mod pgn_writer;
 mod simulation;
+mod sprt;
 #[cfg(test)]
 mod tests;
 mod tournament;

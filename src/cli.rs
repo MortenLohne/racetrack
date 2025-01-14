@@ -1,5 +1,6 @@
 use crate::{
     openings::{self, BookFormat},
+    sprt::SprtParameters,
     tournament::TournamentType,
     uci::parser,
 };
@@ -21,7 +22,7 @@ pub struct CliOptions {
     pub log_file_name: Option<String>,
     pub komi: Komi,
     pub tournament_type: TournamentType,
-    pub sprt: Option<CliSprt>,
+    pub sprt: Option<SprtParameters>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,14 +32,6 @@ pub struct CliEngine {
     pub time: Duration,
     pub increment: Duration,
     pub tei_settings: Vec<(String, String)>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CliSprt {
-    pub elo0: f32,
-    pub elo1: f32,
-    pub alpha: f32,
-    pub beta: f32,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -373,19 +366,19 @@ pub fn parse_cli_arguments_from(
         let alpha = alpha.unwrap_or("0.05");
         let beta = beta.unwrap_or("0.05");
 
-        let elo0 = elo0.parse::<f32>().unwrap_or_else(|err| {
+        let elo0 = elo0.parse::<f64>().unwrap_or_else(|err| {
             eprintln!("{} for sprt elo0", err);
             process::exit(1)
         });
-        let elo1 = elo1.parse::<f32>().unwrap_or_else(|err| {
+        let elo1 = elo1.parse::<f64>().unwrap_or_else(|err| {
             eprintln!("{} for sprt elo1", err);
             process::exit(1)
         });
-        let alpha = alpha.parse::<f32>().unwrap_or_else(|err| {
+        let alpha = alpha.parse::<f64>().unwrap_or_else(|err| {
             eprintln!("{} for sprt alpha", err);
             process::exit(1)
         });
-        let beta = beta.parse::<f32>().unwrap_or_else(|err| {
+        let beta = beta.parse::<f64>().unwrap_or_else(|err| {
             eprintln!("{} for sprt beta", err);
             process::exit(1)
         });
@@ -403,7 +396,7 @@ pub fn parse_cli_arguments_from(
             process::exit(1)
         }
 
-        sprt = Some(CliSprt{ elo0, elo1, alpha, beta });
+        sprt = Some(SprtParameters::new(elo0, elo1, alpha, beta));
     }
 
     Ok(CliOptions {
