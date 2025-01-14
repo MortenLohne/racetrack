@@ -7,7 +7,7 @@ use clap::{self, Arg, ArgAction, Command};
 use std::{env, ffi::OsString, num::NonZeroUsize, process, time::Duration};
 use tiltak::position::Komi;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CliOptions {
     pub size: usize,
     pub concurrency: usize,
@@ -21,6 +21,7 @@ pub struct CliOptions {
     pub log_file_name: Option<String>,
     pub komi: Komi,
     pub tournament_type: TournamentType,
+    pub sprt: Option<CliSprt>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,14 @@ pub struct CliEngine {
     pub time: Duration,
     pub increment: Duration,
     pub tei_settings: Vec<(String, String)>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CliSprt {
+    pub elo0: f32,
+    pub elo1: f32,
+    pub alpha: f32,
+    pub beta: f32,
 }
 
 pub fn parse_cli_arguments() -> CliOptions {
@@ -147,6 +156,12 @@ pub fn parse_cli_arguments_from(
             .default_value("round-robin")
             .value_parser(clap::builder::PossibleValuesParser::new(["gauntlet", "round-robin", "book-test"]))
         )
+        .arg(Arg::new("sprt-flag")
+            .long("sprt")
+            .help("Perform a sequential probability ratio test.")
+            .value_name("options")
+            .num_args(0..)
+            .action(ArgAction::Append))
         .try_get_matches_from(itr)?;
 
     let engines: Vec<CliEngine> = matches
@@ -303,6 +318,80 @@ pub fn parse_cli_arguments_from(
         s => panic!("Unsupported book format {}", s),
     };
 
+    let mut sprt = None;
+    let sprt_options = matches.get_many::<String>("sprt-flag");
+    if let Some(sprt_options) = sprt_options {
+        let mut elo0 = None;
+        let mut elo1 = None;
+        let mut alpha = None;
+        let mut beta = None;
+
+        for option in sprt_options {
+            if let Some((arg, value)) = option.split_once('=') {
+                match arg {
+                    "elo0" if elo0.is_some() => panic!("Duplicate elo0 arguments \"{}\" and \"{}\" for sprt", elo0.unwrap(), value),
+                    "elo0" => elo0 = Some(value),
+                    "elo1" if elo1.is_some() => panic!("Duplicate elo1 arguments \"{}\" and \"{}\" for sprt", elo1.unwrap(), value),
+                    "elo1" => elo1 = Some(value),
+                    "alpha" if alpha.is_some() => panic!("Duplicate alpha arguments \"{}\" and \"{}\" for sprt", alpha.unwrap(), value),
+                    "alpha" => alpha = Some(value),
+                    "beta" if beta.is_some() => panic!("Duplicate beta arguments \"{}\" and \"{}\" for sprt", beta.unwrap(), value),
+                    "beta" => beta = Some(value),
+                    _ => {
+                        eprintln!("Error: unknown argument {} for sprt", option);
+                        process::exit(1)
+                    }
+                }
+            } else {
+                eprintln!("Error: Expected key=val, found {}", option);
+                process::exit(1)
+            }
+        }
+
+        let Some(elo0) = elo0 else {
+            eprintln!("Error: Missing elo0 for sprt");
+            process::exit(1)
+        };
+        let Some(elo1) = elo1 else {
+            eprintln!("Error: Missing elo1 for sprt");
+            process::exit(1)
+        };
+        let alpha = alpha.unwrap_or("0.05");
+        let beta = beta.unwrap_or("0.05");
+
+        let elo0 = elo0.parse::<f32>().unwrap_or_else(|err| {
+            eprintln!("{} for sprt elo0", err);
+            process::exit(1)
+        });
+        let elo1 = elo1.parse::<f32>().unwrap_or_else(|err| {
+            eprintln!("{} for sprt elo1", err);
+            process::exit(1)
+        });
+        let alpha = alpha.parse::<f32>().unwrap_or_else(|err| {
+            eprintln!("{} for sprt alpha", err);
+            process::exit(1)
+        });
+        let beta = beta.parse::<f32>().unwrap_or_else(|err| {
+            eprintln!("{} for sprt beta", err);
+            process::exit(1)
+        });
+
+        if elo0 >= elo1 {
+            eprintln!("elo1 ({}) must be greater than elo0 ({})", elo1, elo0);
+            process::exit(1)
+        }
+        if alpha <= 0.0 || alpha >= 0.5 {
+            eprintln!("invalid value {} for sprt alpha", alpha);
+            process::exit(1)
+        }
+        if beta <= 0.0 || beta >= 0.5 {
+            eprintln!("invalid value {} for sprt beta", beta);
+            process::exit(1)
+        }
+
+        sprt = Some(CliSprt{ elo0, elo1, alpha, beta });
+    }
+
     Ok(CliOptions {
         size: *matches.get_one::<u64>("size").unwrap() as usize,
         concurrency: *matches.get_one::<u64>("concurrency").unwrap() as usize,
@@ -316,5 +405,6 @@ pub fn parse_cli_arguments_from(
         log_file_name: matches.get_one::<String>("log").cloned(),
         komi: *matches.get_one::<Komi>("komi").unwrap(),
         tournament_type,
+        sprt,
     })
 }
