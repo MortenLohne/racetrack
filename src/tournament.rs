@@ -3,6 +3,7 @@ use crate::game::ScheduledGame;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
+use crate::sprt::{PentanomialResult, SprtParameters};
 use crate::{exit_with_error, simulation};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
@@ -18,6 +19,7 @@ pub enum TournamentType {
     Gauntlet(NonZeroUsize),
     RoundRobin(usize),
     BookTest(usize),
+    Sprt,
 }
 
 impl TournamentType {
@@ -26,6 +28,7 @@ impl TournamentType {
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() + 1,
             TournamentType::RoundRobin(num_engines) => num_engines,
             TournamentType::BookTest(num_engines) => num_engines,
+            TournamentType::Sprt => 2,
         }
     }
 
@@ -35,6 +38,7 @@ impl TournamentType {
             TournamentType::Gauntlet(num_challengers) => num_challengers.get() * 2,
             TournamentType::RoundRobin(num_engines) => num_engines * (num_engines - 1),
             TournamentType::BookTest(num_engines) => num_engines * num_engines,
+            TournamentType::Sprt => 2,
         }
     }
 }
@@ -48,6 +52,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub openings_start_index: usize,
     pub pgn_writer: Mutex<PgnWriter<B>>,
     pub tournament_type: TournamentType,
+    pub sprt: Option<SprtParameters>,
 }
 
 impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
@@ -110,6 +115,17 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
                     size: self.size,
                 })
                 .collect(),
+            TournamentType::Sprt => (0..self.num_games)
+                .map(|round_number| ScheduledGame {
+                    round_number,
+                    opening: self.openings
+                        [(self.openings_start_index + round_number / 2) % self.openings.len()]
+                    .clone(),
+                    white_engine_id: EngineId(round_number % 2),
+                    black_engine_id: EngineId((round_number + 1) % 2),
+                    size: self.size,
+                })
+                .collect(),
         }
     }
 }
@@ -129,6 +145,7 @@ pub struct Tournament<B: PgnPosition> {
     finished_games: Mutex<Vec<Option<Game<B>>>>,
     pgn_writer: Mutex<PgnWriter<B>>,
     tournament_type: TournamentType,
+    sprt: Option<SprtParameters>,
 }
 
 impl<B> Tournament<B>
@@ -149,6 +166,7 @@ where
             finished_games: Mutex::new(vec![None; settings.num_games]),
             pgn_writer: settings.pgn_writer,
             tournament_type: settings.tournament_type,
+            sprt: settings.sprt,
         }
     }
 
@@ -269,7 +287,7 @@ where
                                 let writer = &thread_tournament.pgn_writer;
                                 writer.lock().unwrap().submit_game(round_number, game);
                             }
-                            thread_tournament.print_score(&engine_names);
+                            thread_tournament.print_score(&engine_names, is_shutting_down);
                         }
                         for engine in worker.engines.iter_mut() {
                             engine.shutdown().unwrap();
@@ -281,10 +299,10 @@ where
         for thread_handle in thread_handles {
             thread_handle.join().unwrap();
         }
-        tournament_arc.print_score(&engine_names);
+        tournament_arc.print_score(&engine_names, is_shutting_down);
     }
 
-    fn print_score(&self, engine_names: &[String]) {
+    fn print_score(&self, engine_names: &[String], is_shutting_down: &'static AtomicBool) {
         let (schedule, finished_games) = loop {
             if let Ok(schedule) = self.games_schedule.try_lock() {
                 if let Ok(finished_games) = self.finished_games.try_lock() {
@@ -404,7 +422,101 @@ where
                 }
             }
             TournamentType::BookTest(_) => (),
+            TournamentType::Sprt => {
+                println!("Base engine : {}", engine_names[0]);
+                println!("Under test  : {}", engine_names[1]);
+
+                let score = MatchScore {
+                    wins: engine_wins[1][0],
+                    draws: engine_draws[1][0],
+                    losses: engine_losses[1][0],
+                };
+                let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
+                let lower = full_simulation.result_for_p(0.025);
+                let expected = score.score();
+                let upper = full_simulation.result_for_p(0.975);
+                let lower_elo = simulation::to_elo_string(lower);
+                let expected_elo = simulation::to_elo_string(expected);
+                let upper_elo = simulation::to_elo_string(upper);
+                println!(
+                    "Elo         : {} [{}, {}] (95%)",
+                    expected_elo, lower_elo, upper_elo
+                );
+                println!(
+                    "WDL         : W: {}, D: {}, L: {}",
+                    score.wins, score.draws, score.losses
+                );
+
+                let penta = Self::sprt_penta_stats(&finished_games);
+                println!(
+                    "Penta(0-2)  : {}, {}, {}, {}, {}",
+                    penta.ll,
+                    penta.dl,
+                    penta.dd + penta.wl,
+                    penta.wd,
+                    penta.ww
+                );
+
+                if let Some(sprt) = self.sprt {
+                    let (elo0, elo1) = sprt.elo_bounds();
+                    let (lower_bound, upper_bound) = sprt.llr_bounds();
+                    let llr = sprt.llr(penta);
+
+                    let meet = if llr <= lower_bound {
+                        format!("(<= {:.2})", lower_bound)
+                    } else if llr >= upper_bound {
+                        format!("(>= {:.2})", upper_bound)
+                    } else {
+                        "".to_string()
+                    };
+                    println!(
+                        "LLR         : {:.2} {:10} [{:.2} {:.2}]",
+                        llr, meet, elo0, elo1
+                    );
+
+                    if llr <= lower_bound || llr >= upper_bound {
+                        is_shutting_down.store(true, atomic::Ordering::SeqCst);
+                    }
+
+                    if llr <= lower_bound {
+                        println!("SPRT failed");
+                    }
+                    if llr >= upper_bound {
+                        println!("SPRT passed");
+                    }
+                }
+            }
         }
+    }
+
+    fn sprt_penta_stats(finished_games: &Vec<Option<Game<B>>>) -> PentanomialResult {
+        let mut result = PentanomialResult {
+            ww: 0,
+            wd: 0,
+            wl: 0,
+            dd: 0,
+            dl: 0,
+            ll: 0,
+        };
+        for game_pair in finished_games
+            .chunks(2)
+            .filter(|p| p.iter().all(|g| g.is_some()))
+        {
+            let result1 = game_pair[0].clone().unwrap().game_result().unwrap_or(Draw);
+            let result2 = game_pair[1].clone().unwrap().game_result().unwrap_or(Draw);
+            match (result1, result2) {
+                (WhiteWin, BlackWin) => result.ll += 1,
+                (WhiteWin, Draw) => result.dl += 1,
+                (Draw, BlackWin) => result.dl += 1,
+                (WhiteWin, WhiteWin) => result.wl += 1,
+                (BlackWin, BlackWin) => result.wl += 1,
+                (Draw, Draw) => result.dd += 1,
+                (BlackWin, Draw) => result.wd += 1,
+                (Draw, WhiteWin) => result.wd += 1,
+                (BlackWin, WhiteWin) => result.ww += 1,
+            }
+        }
+        result
     }
 
     fn next_unplayed_game(&self) -> Option<ScheduledGame<B>> {

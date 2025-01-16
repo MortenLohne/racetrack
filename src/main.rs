@@ -20,6 +20,7 @@ mod game;
 mod openings;
 mod pgn_writer;
 mod simulation;
+mod sprt;
 #[cfg(test)]
 mod tests;
 mod tournament;
@@ -144,6 +145,7 @@ fn run_match<const S: usize>(
         num_games: cli_args.games,
         pgn_writer: Mutex::new(pgnout),
         tournament_type: cli_args.tournament_type,
+        sprt: cli_args.sprt,
     };
 
     let tournament = Tournament::new(settings);

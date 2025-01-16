@@ -28,6 +28,7 @@ fn dummy_tournament(
         openings_start_index: 0,
         pgn_writer: Mutex::new(PgnWriter::new(io::empty())),
         tournament_type,
+        sprt: None,
     }
 }
 
