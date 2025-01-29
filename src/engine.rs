@@ -83,6 +83,9 @@ impl EngineBuilder {
                 Some("option") => {
                     engine.options.push(parse_option(&input).unwrap()); // TODO: Handle error
                 }
+                _ if input.starts_with("id name") => {
+                    engine.name = input.trim_start_matches("id name").trim().to_owned();
+                }
                 s => info!("Unexpected message \"{}\", ignoring", s.unwrap_or_default()),
             }
         }
