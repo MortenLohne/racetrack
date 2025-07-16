@@ -2,6 +2,7 @@ use std::sync::mpsc::Receiver;
 use std::thread::Builder;
 
 use pgn_traits::PgnPosition;
+use tiltak::position::Position;
 
 // The value must be the same as in `visualizer.html`.
 const PORT: u16 = 30564;
@@ -18,12 +19,14 @@ pub enum Message<P: PgnPosition> {
     },
 }
 
-pub fn run_websocket_server<P>(rx: Receiver<Receiver<Message<P>>>)
-where
-    P: PgnPosition + Send + 'static,
-    P::Move: std::fmt::Display + Send,
-{
-    Builder::new()
+// HACK: Workaround to get access to komi.
+pub trait Visualize: PgnPosition {
+    fn run_websocket_server(rx: Receiver<Receiver<Message<Self>>>);
+}
+
+impl<const S: usize> Visualize for Position<S> {
+    fn run_websocket_server(rx: Receiver<Receiver<Message<Position<S>>>>) {
+        Builder::new()
         .name("WebSocket Server".to_string())
         .spawn(move || {
             let server = std::net::TcpListener::bind(format!("127.0.0.1:{PORT}"))
@@ -39,12 +42,12 @@ where
                             .expect("The incoming connection should be using `ws` instead of `wss`.");
 
                         // Initialize the game from the first message.
-                        let (white, black, tps) = match move_rx.recv() {
+                        let (white, black, tps, komi) = match move_rx.recv() {
                             Ok(Message::Start {
                             white,
                             black,
                             root_position,
-                        }) => (white, black, root_position.to_fen()),
+                        }) => (white, black, root_position.to_fen(), root_position.komi()),
                             Ok(_) => panic!("The first message sent should be a Start message."),
                             Err(_) => panic!("The game thread should still be alive.")
                         };
@@ -53,7 +56,7 @@ where
                             .send(tungstenite::Message::Text(
                                 json::object! {
                                     action: "SET_CURRENT_PTN",
-                                    value: format!("[Player1 \"{white}\"]\n[Player2 \"{black}\"]\n[TPS \"{tps}\"]"),
+                                    value: format!("[Player1 \"{white}\"][Player2 \"{black}\"][TPS \"{tps}\"][Komi \"{komi}\"]"),
                                 }.to_string().into()
                             ))?;
 
@@ -81,4 +84,5 @@ where
             }
         })
         .unwrap();
+    }
 }

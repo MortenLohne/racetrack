@@ -152,8 +152,8 @@ pub struct Tournament<B: PgnPosition> {
 
 impl<B> Tournament<B>
 where
-    B: PgnPosition + Clone + Send + 'static,
-    B::Move: Send + std::fmt::Display,
+    B: PgnPosition + Clone + Send + 'static + visualize::Visualize,
+    B::Move: Send,
     B::Settings: Send + Sync,
 {
     pub fn new(settings: TournamentSettings<B>) -> Self {
@@ -228,7 +228,7 @@ where
         // Channel for sending per-game move `Receiver`s to the WebSocket server thread.
         let (tx, rx) = std::sync::mpsc::channel();
         if self.visualize {
-            visualize::run_websocket_server(rx);
+            B::run_websocket_server(rx);
         }
         let visualize_tx = Arc::new(tx);
         let tournament_arc = Arc::new(self);
