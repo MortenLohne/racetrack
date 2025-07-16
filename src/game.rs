@@ -195,28 +195,30 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 );
             }
             position.do_move(mv.clone());
-            if visualize {
-                move_tx
-                    .send(visualize::Message::Ply {
-                        mv: mv.clone(),
-                        eval: None,
-                    })
-                    .expect("Sub-thread should be alive.");
-            }
 
-            let score_string = match last_uci_info {
+            let side_to_move_flipper = match position.side_to_move() {
+                Color::White => -1,
+                Color::Black => 1,
+            };
+            let score_string = match &last_uci_info {
                 Some(uci_info) => format!(
                     "{:+.2}/{} {:.2}s",
-                    match position.side_to_move() {
-                        // Flip sign if last move was black's
-                        Color::White => uci_info.cp_score as f64 / -100.0,
-                        Color::Black => uci_info.cp_score as f64 / 100.0,
-                    },
+                    (side_to_move_flipper * uci_info.cp_score) as f64 / 100.0,
                     uci_info.depth,
                     time_taken.as_secs_f32(),
                 ),
                 None => String::new(),
             };
+            if visualize {
+                move_tx
+                    .send(visualize::Message::Ply {
+                        mv: mv.clone(),
+                        eval: last_uci_info
+                            .map(|uci_info| uci_info.cp_score * side_to_move_flipper),
+                    })
+                    .expect("Sub-thread should be alive.");
+            }
+
             moves.push(PtnMove {
                 mv,
                 annotations: vec![],

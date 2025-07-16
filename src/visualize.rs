@@ -15,7 +15,7 @@ pub enum Message<P: PgnPosition> {
     },
     Ply {
         mv: P::Move,
-        eval: Option<i8>, // -100 to 100
+        eval: Option<i64>,
     },
 }
 
@@ -72,7 +72,7 @@ impl<const S: usize> Visualize for Position<S> {
                                 websocket.send(tungstenite::Message::Text(
                                     json::object! {
                                         action: "SET_EVAL",
-                                        value: cp,
+                                        value: cp.clamp(-100, 100),
                                     }.to_string().into()
                                 ))?
                             }
