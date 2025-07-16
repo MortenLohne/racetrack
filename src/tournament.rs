@@ -228,52 +228,7 @@ where
         // We create a channel to send per-game `Receiver`s to the WebSocket server thread.
         let (tx, rx) = std::sync::mpsc::channel();
         if self.visualize {
-            // TODO: Maybe move this to `visualizer.rs` for easier to read code?
-            Builder::new()
-                .name("WebSocket Server".to_string())
-                .spawn(move || {
-                    let server = std::net::TcpListener::bind(format!("127.0.0.1:{}", visualizer::PORT)).unwrap();
-                    // Every time the visualizer window is opened, we get a new connection.
-                    for (i, stream) in server.incoming().enumerate() {
-                        // Get the move receiver for that game.
-                        let move_rx: std::sync::mpsc::Receiver<visualizer::Message<B>> =
-                            rx.recv().unwrap();
-                        Builder::new()
-                            .name(format!("WebSocket Move Relay #{i}"))
-                            .spawn(move || {
-                                let mut websocket = tungstenite::accept(stream.unwrap()).unwrap();
-                                let Ok(visualizer::Message::Start {
-                                    white,
-                                    black,
-                                    root_position,
-                                }) = move_rx.recv()
-                                else {
-                                    // TODO: Maybe do this with types? Have a one-shot that sends a Start, and with that a new channel that only sends moves?
-                                    panic!("We should have received a Start message.");
-                                };
-                                let tps = root_position.to_fen();
-                                websocket
-                                    .send(tungstenite::Message::Text(
-                                        json::object! {
-                                            action: "SET_CURRENT_PTN",
-                                            value: format!("[Player1 \"{white}\"]\n[Player2 \"{black}\"]\n[TPS \"{tps}\"]"),
-                                        }.to_string().into()
-                                    ))
-                                    .unwrap();
-                                while let Ok(visualizer::Message::Ply(mv)) = move_rx.recv() {
-                                    // TODO: Evals
-                                    websocket.send(tungstenite::Message::Text(
-                                        json::object! {
-                                            action: "INSERT_PLY",
-                                            value: mv.to_string(),
-                                        }.to_string().into()
-                                    )).unwrap();
-                                }
-                            })
-                            .unwrap();
-                    }
-                })
-                .unwrap();
+            visualizer::run_websocket_server(rx);
         } else {
             drop(rx);
         }
@@ -308,11 +263,9 @@ where
                             let game = match scheduled_game.play_game(
                                 &mut worker,
                                 &thread_tournament.position_settings,
-                                if thread_tournament.visualize {
-                                    Some(thread_visualize_tx.clone())
-                                } else {
-                                    None
-                                },
+                                thread_tournament
+                                    .visualize
+                                    .then_some(thread_visualize_tx.clone()),
                             ) {
                                 Ok(game) => game,
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
