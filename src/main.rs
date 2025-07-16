@@ -25,7 +25,7 @@ mod sprt;
 mod tests;
 mod tournament;
 pub mod uci;
-mod visualizer;
+mod visualize;
 
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();

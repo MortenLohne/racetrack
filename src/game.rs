@@ -3,7 +3,7 @@ use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
-use crate::visualizer;
+use crate::visualize;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
@@ -36,7 +36,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         self,
         worker: &mut Worker,
         position_settings: &B::Settings,
-        tx: Option<std::sync::Arc<mpsc::Sender<mpsc::Receiver<visualizer::Message<B>>>>>, // FIXME: Long type
+        tx: Option<std::sync::Arc<mpsc::Sender<mpsc::Receiver<visualize::Message<B>>>>>, // FIXME: Long type
     ) -> io::Result<Game<B>> {
         let visualize = tx.is_some();
         let (mini_tx, mini_rx) = mpsc::channel();
@@ -54,7 +54,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         let black = self.black_engine_id.0;
         if visualize {
             mini_tx
-                .send(visualizer::Message::Start {
+                .send(visualize::Message::Start {
                     white: worker.engines[white].name().to_string(),
                     black: worker.engines[black].name().to_string(),
                     root_position: position.clone(),
@@ -76,7 +76,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
             if visualize {
-                mini_tx.send(visualizer::Message::Ply(mv.clone())).unwrap();
+                mini_tx.send(visualize::Message::Ply(mv.clone())).unwrap();
             }
         }
 
@@ -189,7 +189,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             }
             position.do_move(mv.clone());
             if visualize {
-                mini_tx.send(visualizer::Message::Ply(mv.clone())).unwrap();
+                mini_tx.send(visualize::Message::Ply(mv.clone())).unwrap();
             }
 
             let score_string = match last_uci_info {

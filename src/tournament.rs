@@ -4,7 +4,7 @@ use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
 use crate::sprt::{PentanomialResult, SprtParameters};
-use crate::{exit_with_error, simulation, visualizer};
+use crate::{exit_with_error, simulation, visualize};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::num::NonZeroUsize;
@@ -228,7 +228,7 @@ where
         // We create a channel to send per-game `Receiver`s to the WebSocket server thread.
         let (tx, rx) = std::sync::mpsc::channel();
         if self.visualize {
-            visualizer::run_websocket_server(rx);
+            visualize::run_websocket_server(rx);
         } else {
             drop(rx);
         }
