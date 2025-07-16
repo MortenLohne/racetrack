@@ -23,3 +23,8 @@ bpci = "0.1.0-beta.7"
 rand_distr = "0.4.3"
 color-print = "0.3.5"
 ctrlc = "3.4.2"
+# TODO: Consider putting these dependencies behind a feature flag
+# since they are only used by the visualizer.
+open = "5.3.2"
+tungstenite = "0.27.0"
+json = "0.12.4"

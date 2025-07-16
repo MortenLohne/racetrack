@@ -4,7 +4,7 @@ use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
 use crate::sprt::{PentanomialResult, SprtParameters};
-use crate::{exit_with_error, simulation};
+use crate::{exit_with_error, simulation, visualizer};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::num::NonZeroUsize;
@@ -53,6 +53,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub pgn_writer: Mutex<PgnWriter<B>>,
     pub tournament_type: TournamentType,
     pub sprt: Option<SprtParameters>,
+    pub visualize: bool,
 }
 
 impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
@@ -146,12 +147,13 @@ pub struct Tournament<B: PgnPosition> {
     pgn_writer: Mutex<PgnWriter<B>>,
     tournament_type: TournamentType,
     sprt: Option<SprtParameters>,
+    visualize: bool,
 }
 
 impl<B> Tournament<B>
 where
     B: PgnPosition + Clone + Send + 'static,
-    B::Move: Send,
+    B::Move: Send + std::fmt::Display,
     B::Settings: Send + Sync,
 {
     pub fn new(settings: TournamentSettings<B>) -> Self {
@@ -167,6 +169,7 @@ where
             pgn_writer: settings.pgn_writer,
             tournament_type: settings.tournament_type,
             sprt: settings.sprt,
+            visualize: settings.visualize,
         }
     }
 
@@ -222,6 +225,59 @@ where
             })
             .collect();
 
+        // We create a channel to send per-game `Receiver`s to the WebSocket server thread.
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.visualize {
+            // TODO: Maybe move this to `visualizer.rs` for easier to read code?
+            Builder::new()
+                .name("WebSocket Server".to_string())
+                .spawn(move || {
+                    let server = std::net::TcpListener::bind(format!("127.0.0.1:{}", visualizer::PORT)).unwrap();
+                    // Every time the visualizer window is opened, we get a new connection.
+                    for (i, stream) in server.incoming().enumerate() {
+                        // Get the move receiver for that game.
+                        let move_rx: std::sync::mpsc::Receiver<visualizer::Message<B>> =
+                            rx.recv().unwrap();
+                        Builder::new()
+                            .name(format!("WebSocket Move Relay #{i}"))
+                            .spawn(move || {
+                                let mut websocket = tungstenite::accept(stream.unwrap()).unwrap();
+                                let Ok(visualizer::Message::Start {
+                                    white,
+                                    black,
+                                    root_position,
+                                }) = move_rx.recv()
+                                else {
+                                    // TODO: Maybe do this with types? Have a one-shot that sends a Start, and with that a new channel that only sends moves?
+                                    panic!("We should have received a Start message.");
+                                };
+                                let tps = root_position.to_fen();
+                                websocket
+                                    .send(tungstenite::Message::Text(
+                                        json::object! {
+                                            action: "SET_CURRENT_PTN",
+                                            value: format!("[Player1 \"{white}\"]\n[Player2 \"{black}\"]\n[TPS \"{tps}\"]"),
+                                        }.to_string().into()
+                                    ))
+                                    .unwrap();
+                                while let Ok(visualizer::Message::Ply(mv)) = move_rx.recv() {
+                                    // TODO: Evals
+                                    websocket.send(tungstenite::Message::Text(
+                                        json::object! {
+                                            action: "INSERT_PLY",
+                                            value: mv.to_string(),
+                                        }.to_string().into()
+                                    )).unwrap();
+                                }
+                            })
+                            .unwrap();
+                    }
+                })
+                .unwrap();
+        } else {
+            drop(rx);
+        }
+        let visualize_tx = Arc::new(tx);
         let tournament_arc = Arc::new(self);
 
         println!(
@@ -239,6 +295,7 @@ where
             .into_iter()
             .map(|mut worker| {
                 let thread_tournament = tournament_arc.clone();
+                let thread_visualize_tx = visualize_tx.clone();
                 let engine_names = engine_names.clone();
                 Builder::new()
                     .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
@@ -248,9 +305,15 @@ where
                                 break;
                             }
                             let round_number = scheduled_game.round_number;
-                            let game = match scheduled_game
-                                .play_game(&mut worker, &thread_tournament.position_settings)
-                            {
+                            let game = match scheduled_game.play_game(
+                                &mut worker,
+                                &thread_tournament.position_settings,
+                                if thread_tournament.visualize {
+                                    Some(thread_visualize_tx.clone())
+                                } else {
+                                    None
+                                },
+                            ) {
                                 Ok(game) => game,
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
                                 // and write a dummy game to the pgn output, so that later games won't be held up

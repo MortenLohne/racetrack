@@ -3,11 +3,13 @@ use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
+use crate::visualizer;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
 use std::fmt::Write;
+use std::sync::mpsc;
 use std::time::Instant;
 use std::{io, thread};
 use tiltak::position::Komi;
@@ -34,12 +36,31 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         self,
         worker: &mut Worker,
         position_settings: &B::Settings,
+        tx: Option<std::sync::Arc<mpsc::Sender<mpsc::Receiver<visualizer::Message<B>>>>>, // FIXME: Long type
     ) -> io::Result<Game<B>> {
+        let visualize = tx.is_some();
+        let (mini_tx, mini_rx) = mpsc::channel();
+        if let Some(tx) = tx.as_ref() {
+            open::that("visualizer.html").unwrap(); // HACK: Relies on the file being there
+            tx.send(mini_rx).unwrap();
+        } else {
+            drop(mini_rx);
+        }
+
         let mut position =
             B::from_fen_with_settings(&self.opening.root_position.to_fen(), position_settings)
                 .unwrap();
         let white = self.white_engine_id.0;
         let black = self.black_engine_id.0;
+        if visualize {
+            mini_tx
+                .send(visualizer::Message::Start {
+                    white: worker.engines[white].name().to_string(),
+                    black: worker.engines[black].name().to_string(),
+                    root_position: position.clone(),
+                })
+                .unwrap();
+        }
 
         let mut moves: Vec<PtnMove<B::Move>> = self
             .opening
@@ -54,6 +75,9 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
+            if visualize {
+                mini_tx.send(visualizer::Message::Ply(mv.clone())).unwrap();
+            }
         }
 
         worker.engines[white].uci_write_line(&format!("teinewgame {}", self.size))?;
@@ -164,6 +188,9 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 );
             }
             position.do_move(mv.clone());
+            if visualize {
+                mini_tx.send(visualizer::Message::Ply(mv.clone())).unwrap();
+            }
 
             let score_string = match last_uci_info {
                 Some(uci_info) => format!(
