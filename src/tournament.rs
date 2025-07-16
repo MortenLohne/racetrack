@@ -225,12 +225,10 @@ where
             })
             .collect();
 
-        // We create a channel to send per-game `Receiver`s to the WebSocket server thread.
+        // Channel for sending per-game move `Receiver`s to the WebSocket server thread.
         let (tx, rx) = std::sync::mpsc::channel();
         if self.visualize {
             visualize::run_websocket_server(rx);
-        } else {
-            drop(rx);
         }
         let visualize_tx = Arc::new(tx);
         let tournament_arc = Arc::new(self);

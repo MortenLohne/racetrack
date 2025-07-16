@@ -39,12 +39,14 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         tx: Option<std::sync::Arc<mpsc::Sender<mpsc::Receiver<visualize::Message<B>>>>>, // FIXME: Long type
     ) -> io::Result<Game<B>> {
         let visualize = tx.is_some();
-        let (mini_tx, mini_rx) = mpsc::channel();
+        let (move_tx, move_rx) = mpsc::channel();
         if let Some(tx) = tx.as_ref() {
-            open::that("visualizer.html").unwrap(); // HACK: Relies on the file being there
-            tx.send(mini_rx).unwrap();
-        } else {
-            drop(mini_rx);
+            // HACK: Relies on the file being there
+            open::that("visualizer.html")
+                .expect("`visualizer.html` should be in the working directory.");
+            tx.send(move_rx).expect(
+                "The WebSocket server thread should still be alive to receive the move receiver.",
+            );
         }
 
         let mut position =
@@ -53,13 +55,13 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         let white = self.white_engine_id.0;
         let black = self.black_engine_id.0;
         if visualize {
-            mini_tx
+            move_tx
                 .send(visualize::Message::Start {
                     white: worker.engines[white].name().to_string(),
                     black: worker.engines[black].name().to_string(),
                     root_position: position.clone(),
                 })
-                .unwrap();
+                .expect("Sub-thread should be alive.");
         }
 
         let mut moves: Vec<PtnMove<B::Move>> = self
@@ -76,7 +78,12 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
             if visualize {
-                mini_tx.send(visualize::Message::Ply(mv.clone())).unwrap();
+                move_tx
+                    .send(visualize::Message::Ply {
+                        mv: mv.clone(),
+                        eval: None,
+                    })
+                    .expect("Sub-thread should be alive.");
             }
         }
 
@@ -189,7 +196,12 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             }
             position.do_move(mv.clone());
             if visualize {
-                mini_tx.send(visualize::Message::Ply(mv.clone())).unwrap();
+                move_tx
+                    .send(visualize::Message::Ply {
+                        mv: mv.clone(),
+                        eval: None,
+                    })
+                    .expect("Sub-thread should be alive.");
             }
 
             let score_string = match last_uci_info {
