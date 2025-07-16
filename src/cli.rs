@@ -23,6 +23,7 @@ pub struct CliOptions {
     pub komi: Komi,
     pub tournament_type: TournamentType,
     pub sprt: Option<SprtParameters>,
+    pub visualize: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,6 +156,10 @@ pub fn parse_cli_arguments_from(
             .value_name("options")
             .num_args(0..)
             .action(ArgAction::Append))
+        .arg(Arg::new("visualize")
+            .long("visualize")
+            .help("Visualize the match using the PTN-Ninja API")
+            .action(ArgAction::SetTrue))
         .try_get_matches_from(itr)?;
 
     let engines: Vec<CliEngine> = matches
@@ -432,5 +437,6 @@ pub fn parse_cli_arguments_from(
         komi: *matches.get_one::<Komi>("komi").unwrap(),
         tournament_type,
         sprt,
+        visualize: matches.get_flag("visualize"),
     })
 }

@@ -4,7 +4,7 @@ use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
 use crate::sprt::{PentanomialResult, SprtParameters};
-use crate::{exit_with_error, simulation};
+use crate::{exit_with_error, simulation, visualize};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::num::NonZeroUsize;
@@ -53,6 +53,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub pgn_writer: Mutex<PgnWriter<B>>,
     pub tournament_type: TournamentType,
     pub sprt: Option<SprtParameters>,
+    pub visualize: bool,
 }
 
 impl<B: PgnPosition> fmt::Debug for TournamentSettings<B> {
@@ -146,11 +147,12 @@ pub struct Tournament<B: PgnPosition> {
     pgn_writer: Mutex<PgnWriter<B>>,
     tournament_type: TournamentType,
     sprt: Option<SprtParameters>,
+    visualize: bool,
 }
 
 impl<B> Tournament<B>
 where
-    B: PgnPosition + Clone + Send + 'static,
+    B: PgnPosition + Clone + Send + 'static + visualize::Visualize,
     B::Move: Send,
     B::Settings: Send + Sync,
 {
@@ -167,6 +169,7 @@ where
             pgn_writer: settings.pgn_writer,
             tournament_type: settings.tournament_type,
             sprt: settings.sprt,
+            visualize: settings.visualize,
         }
     }
 
@@ -222,6 +225,12 @@ where
             })
             .collect();
 
+        // Channel for sending per-game move `Receiver`s to the WebSocket server thread.
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.visualize {
+            B::run_websocket_server(rx);
+        }
+        let visualize_tx = Arc::new(tx);
         let tournament_arc = Arc::new(self);
 
         println!(
@@ -239,6 +248,7 @@ where
             .into_iter()
             .map(|mut worker| {
                 let thread_tournament = tournament_arc.clone();
+                let thread_visualize_tx = visualize_tx.clone();
                 let engine_names = engine_names.clone();
                 Builder::new()
                     .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
@@ -248,9 +258,13 @@ where
                                 break;
                             }
                             let round_number = scheduled_game.round_number;
-                            let game = match scheduled_game
-                                .play_game(&mut worker, &thread_tournament.position_settings)
-                            {
+                            let game = match scheduled_game.play_game(
+                                &mut worker,
+                                &thread_tournament.position_settings,
+                                thread_tournament
+                                    .visualize
+                                    .then_some(thread_visualize_tx.clone()),
+                            ) {
                                 Ok(game) => game,
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
                                 // and write a dummy game to the pgn output, so that later games won't be held up

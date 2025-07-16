@@ -3,11 +3,13 @@ use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
 use crate::uci::parser::parse_info_string;
 use crate::uci::UciInfo;
+use crate::visualize;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
 use std::fmt::Write;
+use std::sync::mpsc;
 use std::time::Instant;
 use std::{io, thread};
 use tiltak::position::Komi;
@@ -34,12 +36,33 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         self,
         worker: &mut Worker,
         position_settings: &B::Settings,
+        tx: Option<std::sync::Arc<mpsc::Sender<mpsc::Receiver<visualize::Message<B>>>>>, // FIXME: Long type
     ) -> io::Result<Game<B>> {
+        let visualize = tx.is_some();
+        let (move_tx, move_rx) = mpsc::channel();
+        if let Some(tx) = tx.as_ref() {
+            // HACK: Relies on the file being there
+            open::that("visualizer.html")
+                .expect("`visualizer.html` should be in the working directory.");
+            tx.send(move_rx).expect(
+                "The WebSocket server thread should still be alive to receive the move receiver.",
+            );
+        }
+
         let mut position =
             B::from_fen_with_settings(&self.opening.root_position.to_fen(), position_settings)
                 .unwrap();
         let white = self.white_engine_id.0;
         let black = self.black_engine_id.0;
+        if visualize {
+            move_tx
+                .send(visualize::Message::Start {
+                    white: worker.engines[white].name().to_string(),
+                    black: worker.engines[black].name().to_string(),
+                    root_position: position.clone(),
+                })
+                .expect("Sub-thread should be alive.");
+        }
 
         let mut moves: Vec<PtnMove<B::Move>> = self
             .opening
@@ -54,6 +77,14 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         for PtnMove { mv, .. } in moves.iter() {
             position.do_move(mv.clone());
+            if visualize {
+                move_tx
+                    .send(visualize::Message::Ply {
+                        mv: mv.clone(),
+                        eval: None,
+                    })
+                    .expect("Sub-thread should be alive.");
+            }
         }
 
         worker.engines[white].uci_write_line(&format!("teinewgame {}", self.size))?;
@@ -165,19 +196,29 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             }
             position.do_move(mv.clone());
 
-            let score_string = match last_uci_info {
+            let side_to_move_flipper = match position.side_to_move() {
+                Color::White => -1,
+                Color::Black => 1,
+            };
+            let score_string = match &last_uci_info {
                 Some(uci_info) => format!(
                     "{:+.2}/{} {:.2}s",
-                    match position.side_to_move() {
-                        // Flip sign if last move was black's
-                        Color::White => uci_info.cp_score as f64 / -100.0,
-                        Color::Black => uci_info.cp_score as f64 / 100.0,
-                    },
+                    (side_to_move_flipper * uci_info.cp_score) as f64 / 100.0,
                     uci_info.depth,
                     time_taken.as_secs_f32(),
                 ),
                 None => String::new(),
             };
+            if visualize {
+                move_tx
+                    .send(visualize::Message::Ply {
+                        mv: mv.clone(),
+                        eval: last_uci_info
+                            .map(|uci_info| uci_info.cp_score * side_to_move_flipper),
+                    })
+                    .expect("Sub-thread should be alive.");
+            }
+
             moves.push(PtnMove {
                 mv,
                 annotations: vec![],
