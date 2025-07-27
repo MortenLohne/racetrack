@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::io::BufRead;
+use tiltak::position::Komi;
 use tiltak::ptn::ptn_parser;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +31,7 @@ impl<B: PgnPosition + fmt::Debug> fmt::Debug for Opening<B> {
 pub fn openings_from_file<B: PgnPosition>(
     path: &str,
     format: BookFormat,
+    settings: &B::Settings,
 ) -> io::Result<Vec<Opening<B>>> {
     let reader = io::BufReader::new(fs::File::open(path).unwrap_or_else(|err| {
         exit_with_error(&format!("Couldn't open opening book \"{}\": {}", path, err))
@@ -37,12 +39,13 @@ pub fn openings_from_file<B: PgnPosition>(
 
     match format {
         BookFormat::Pgn => openings_from_ptn(reader),
-        BookFormat::Fen => openings_from_fen(reader),
-        BookFormat::MoveList => openings_from_move_list(reader),
+        BookFormat::Fen => openings_from_fen(settings, reader),
+        BookFormat::MoveList => openings_from_move_list(settings, reader),
     }
 }
 
 pub fn openings_from_move_list<B: PgnPosition, R: BufRead>(
+    settings: &B::Settings,
     reader: R,
 ) -> io::Result<Vec<Opening<B>>> {
     let mut openings = vec![];
@@ -51,7 +54,7 @@ pub fn openings_from_move_list<B: PgnPosition, R: BufRead>(
         let line = line?;
 
         let mut moves = vec![];
-        let mut position = B::start_position();
+        let mut position = B::start_position_with_settings(&settings);
         for mv_string in line.split_whitespace() {
             let mv = position.move_from_san(mv_string).unwrap_or_else(|err| {
                 exit_with_error(&format!(
@@ -71,14 +74,17 @@ pub fn openings_from_move_list<B: PgnPosition, R: BufRead>(
             position.do_move(mv.clone());
         }
         openings.push(Opening {
-            root_position: B::start_position(),
+            root_position: B::start_position_with_settings(&settings),
             moves,
         });
     }
     Ok(openings)
 }
 
-pub fn openings_from_fen<B: PgnPosition, R: BufRead>(reader: R) -> io::Result<Vec<Opening<B>>> {
+pub fn openings_from_fen<B: PgnPosition, R: BufRead>(
+    settings: &B::Settings,
+    reader: R,
+) -> io::Result<Vec<Opening<B>>> {
     let mut openings = vec![];
 
     for line in reader.lines() {
@@ -86,7 +92,7 @@ pub fn openings_from_fen<B: PgnPosition, R: BufRead>(reader: R) -> io::Result<Ve
         if line.chars().all(|ch| ch.is_whitespace()) {
             continue;
         }
-        let position = B::from_fen(&line).unwrap_or_else(|err| {
+        let position = B::from_fen_with_settings(&line, &settings).unwrap_or_else(|err| {
             exit_with_error(&format!("Failed to parse opening \"{}\": {}", line, err))
         });
         openings.push(Opening {
