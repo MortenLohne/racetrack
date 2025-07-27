@@ -1,22 +1,27 @@
 use std::io::{BufWriter, Result};
 use std::sync::atomic::{self, AtomicBool};
-use std::{io, process, result};
+use std::time::Duration;
+use std::{io, process, result, thread};
 
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
+use crate::game::ExternalGameState;
 use crate::pgn_writer::PgnWriter;
 use crate::tournament::{Tournament, TournamentSettings};
+use board_game_traits::Position as _;
 use fern::InitError;
 use log::error;
 use openings::Opening;
 use rand::seq::SliceRandom;
 use std::fs;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tiltak::position::{Position, Settings};
 
 mod cli;
 mod engine;
 mod game;
+#[cfg(feature = "http")]
+mod http;
 mod openings;
 mod pgn_writer;
 mod simulation;
@@ -44,7 +49,13 @@ pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
     let mut openings = match &cli_args.book_path {
         Some(path) => {
             println!("Loading opening book");
-            openings::openings_from_file::<Position<S>>(path, cli_args.book_format)?
+            openings::openings_from_file::<Position<S>>(
+                path,
+                cli_args.book_format,
+                &Settings {
+                    komi: cli_args.komi,
+                },
+            )?
         }
         None => vec![Opening {
             root_position: Position::start_position_with_komi(cli_args.komi),
@@ -150,7 +161,44 @@ fn run_match<const S: usize>(
 
     let tournament = Tournament::new(settings);
 
-    tournament.play(cli_args.concurrency, is_shutting_down, &engine_builders);
+    let external_game_states: Vec<_> = (0..cli_args.concurrency)
+        .map(|_| {
+            Arc::new(Mutex::new(ExternalGameState {
+                white_player: String::new(),
+                black_player: String::new(),
+                opening: Opening {
+                    root_position: <Position<S>>::start_position(),
+                    moves: vec![],
+                },
+                moves: vec![],
+                current_move_uci_info: None,
+                white_time_left: Duration::ZERO,
+                black_time_left: Duration::ZERO,
+            }))
+        })
+        .collect();
+
+    let external_game_states_clone = external_game_states.clone();
+
+    let handle = thread::spawn(move || {
+        tournament.play(
+            cli_args.concurrency,
+            is_shutting_down,
+            &engine_builders,
+            &external_game_states_clone,
+        );
+    });
+
+    #[cfg(feature = "http")]
+    let tokio = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime");
+
+    #[cfg(feature = "http")]
+    tokio.block_on(http::http_server(external_game_states));
+
+    handle.join().unwrap();
 }
 
 /// Utility for quickly exiting during initialization, generally due to a user error

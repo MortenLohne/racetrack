@@ -1,4 +1,5 @@
-use board_game_traits::Position;
+#[cfg(feature = "http")]
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
 
@@ -111,13 +112,16 @@ impl UciOptionType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct UciInfo<B: Position> {
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
+#[cfg_attr(feature = "http", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "http", serde(rename_all = "camelCase"))]
+pub struct UciInfo {
     pub depth: u16,
     pub seldepth: u16,
-    pub time: i64,
+    pub time: u64, // Time in milliseconds
     pub nodes: u64,
+    pub nps: u64,
     pub hashfull: f64,
     pub cp_score: i64,
-    pub pv: Vec<B::Move>, // One or more principal variations, sorted from best to worst
+    pub pv: Vec<String>, // One or more principal variations, sorted from best to worst
 }

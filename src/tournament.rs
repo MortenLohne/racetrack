@@ -1,5 +1,5 @@
 use crate::engine::{Engine, EngineBuilder};
-use crate::game::ScheduledGame;
+use crate::game::{ExternalGameState, ScheduledGame};
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
@@ -10,7 +10,8 @@ use pgn_traits::PgnPosition;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
-use std::thread::{Builder, JoinHandle};
+use std::thread::{self, Builder, JoinHandle};
+use std::time::Duration;
 use std::{fmt, io};
 use tiltak::ptn::Game;
 
@@ -203,6 +204,7 @@ where
         threads: usize,
         is_shutting_down: &'static AtomicBool,
         engine_builders: &[EngineBuilder],
+        external_game_states: &[Arc<Mutex<ExternalGameState<B>>>],
     ) {
         let engine_names: Vec<String> = engine_builders
             .iter()
@@ -237,9 +239,11 @@ where
 
         let thread_handles: Vec<JoinHandle<()>> = workers
             .into_iter()
-            .map(|mut worker| {
+            .zip(external_game_states.iter())
+            .map(|(mut worker, external_game_state)| {
                 let thread_tournament = tournament_arc.clone();
                 let engine_names = engine_names.clone();
+                let external_game_state = external_game_state.clone();
                 Builder::new()
                     .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
                     .spawn(move || {
@@ -248,9 +252,32 @@ where
                                 break;
                             }
                             let round_number = scheduled_game.round_number;
-                            let game = match scheduled_game
-                                .play_game(&mut worker, &thread_tournament.position_settings)
+
+                            let external_state = external_game_state.clone();
                             {
+                                let mut game_state = external_state.lock().unwrap();
+                                game_state.white_player =
+                                    engine_names[scheduled_game.white_engine_id.0].clone();
+                                game_state.black_player =
+                                    engine_names[scheduled_game.black_engine_id.0].clone();
+                                game_state.opening = scheduled_game.opening.clone();
+                                game_state.moves = vec![];
+                                game_state.current_move_uci_info = None;
+                                game_state.white_time_left = worker.engines
+                                    [scheduled_game.white_engine_id.0]
+                                    .builder()
+                                    .game_time;
+                                game_state.black_time_left = worker.engines
+                                    [scheduled_game.black_engine_id.0]
+                                    .builder()
+                                    .game_time;
+                            }
+
+                            let game = match scheduled_game.play_game(
+                                &mut worker,
+                                &external_state,
+                                &thread_tournament.position_settings,
+                            ) {
                                 Ok(game) => game,
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
                                 // and write a dummy game to the pgn output, so that later games won't be held up
@@ -278,6 +305,7 @@ where
                                     }
                                 }
                             };
+                            thread::sleep(Duration::from_secs(1)); // TODO: temp, remove
                             {
                                 let mut finished_games =
                                     thread_tournament.finished_games.lock().unwrap();

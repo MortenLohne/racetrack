@@ -1,5 +1,4 @@
 use crate::uci::{UciError, UciErrorKind, UciInfo, UciOption, UciOptionType};
-use pgn_traits::PgnPosition;
 use std::result;
 use std::str::FromStr;
 use std::time::Duration;
@@ -166,10 +165,14 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     })
 }
 
-pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciError> {
-    let mut pv: Vec<&str> = vec![];
+pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
+    let mut pv: Vec<String> = vec![];
     let mut cp_score = None;
     let mut depth: u16 = 0;
+    let mut seldepth: u16 = 0;
+    let mut time = 0;
+    let mut nodes: u64 = 0;
+    let mut nps: u64 = 0;
 
     // These words are "special", and are used to delimit multi-word infos such as "pv"
     const KEYWORDS: &[&str] = &[
@@ -221,7 +224,7 @@ pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciE
                     .peek()
                     .is_some_and(|word| !KEYWORDS.contains(word))
                 {
-                    pv.push(words_iter.next().unwrap());
+                    pv.push(words_iter.next().unwrap().to_string());
                 }
             }
             "depth" => {
@@ -242,18 +245,83 @@ pub fn parse_info_string<B: PgnPosition>(input: &str) -> Result<UciInfo<B>, UciE
                     ));
                 }
             }
+            "seldepth" => {
+                let d = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"seldepth\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse seldepth".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                seldepth = d;
+            }
+            "time" => {
+                let time_ms = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"time\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse time".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                time = time_ms;
+            }
+            "nodes" => {
+                let n = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"nodes\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse nodes".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                nodes = n;
+            }
+            "nps" => {
+                let n = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"nps\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse nps".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                nps = n;
+            }
             _ => (),
         }
     }
     if let Some(score) = cp_score {
         Ok(UciInfo {
             depth,
-            seldepth: 0,
-            time: 0,
-            nodes: 0,
+            seldepth,
+            time,
+            nodes,
+            nps,
             hashfull: 0.0,
             cp_score: score,
-            pv: vec![],
+            pv,
         })
     } else {
         Err(UciError::new_root(

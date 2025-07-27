@@ -8,7 +8,8 @@ use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
 use std::fmt::Write;
-use std::time::Instant;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use std::{io, thread};
 use tiltak::position::Komi;
 use tiltak::ptn::{Game, PtnMove};
@@ -29,10 +30,33 @@ fn forfeit_win_str(color: Color) -> &'static str {
     }
 }
 
+#[derive(Clone)]
+pub struct ExternalGameState<B: PgnPosition> {
+    pub white_player: String,
+    pub black_player: String,
+    pub opening: Opening<B>,
+    pub moves: Vec<ExternalMove<B>>,
+    pub current_move_uci_info: Option<UciInfo>,
+    pub white_time_left: Duration,
+    pub black_time_left: Duration,
+}
+
+pub struct ExternalGameHistory<B: PgnPosition> {
+    pub opening: Opening<B>,
+    pub moves: Vec<ExternalMove<B>>,
+}
+
+#[derive(Clone)]
+pub struct ExternalMove<B: PgnPosition> {
+    pub mv: B::Move,
+    pub uci_info: UciInfo,
+}
+
 impl<B: PgnPosition + Clone> ScheduledGame<B> {
     pub(crate) fn play_game(
         self,
         worker: &mut Worker,
+        game_state: &Mutex<ExternalGameState<B>>,
         position_settings: &B::Settings,
     ) -> io::Result<Game<B>> {
         let mut position =
@@ -120,6 +144,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             );
 
             let (move_string, last_uci_info) = match Self::play_move(
+                &game_state,
                 engine_to_move,
                 &position_string,
                 &go_string,
@@ -165,7 +190,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             }
             position.do_move(mv.clone());
 
-            let score_string = match last_uci_info {
+            let score_string = match &last_uci_info {
                 Some(uci_info) => format!(
                     "{:+.2}/{} {:.2}s",
                     match position.side_to_move() {
@@ -179,7 +204,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                 None => String::new(),
             };
             moves.push(PtnMove {
-                mv,
+                mv: mv.clone(),
                 annotations: vec![],
                 comment: score_string,
             });
@@ -201,6 +226,16 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         break (Some("1-0"), "White wins on time".to_string());
                     }
                 }
+            }
+            {
+                let mut game_state = game_state.lock().unwrap();
+                game_state.moves.push(ExternalMove {
+                    mv,
+                    uci_info: last_uci_info.unwrap_or_default(),
+                });
+                game_state.current_move_uci_info = None;
+                game_state.white_time_left = white_time;
+                game_state.black_time_left = black_time;
             }
         };
 
@@ -282,22 +317,26 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
     }
 
     fn play_move(
+        game_state: &Mutex<ExternalGameState<B>>,
         engine_to_move: &mut Engine,
         position_string: &str,
         go_string: &str,
-    ) -> io::Result<(String, Option<UciInfo<B>>)> {
+    ) -> io::Result<(String, Option<UciInfo>)> {
         engine_to_move.uci_write_line(position_string)?;
 
         engine_to_move.uci_write_line(go_string)?;
 
-        let mut last_uci_info: Option<UciInfo<B>> = None;
+        let mut last_uci_info: Option<UciInfo> = None;
 
         loop {
             let input = engine_to_move.uci_read_line()?;
 
             if input.starts_with("info") {
                 match parse_info_string(&input) {
-                    Ok(uci_info) => last_uci_info = Some(uci_info),
+                    Ok(uci_info) => {
+                        game_state.lock().unwrap().current_move_uci_info = Some(uci_info.clone());
+                        last_uci_info = Some(uci_info);
+                    }
                     Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
                 }
             }
