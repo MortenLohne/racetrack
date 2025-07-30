@@ -672,16 +672,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
-name = "libmimalloc-sys"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88cd67e9de251c1781dbe2f641a1a3ad66eaae831b8a2c38fbdc5ddae16d4d"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "log"
 version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -698,15 +688,6 @@ name = "memchr"
 version = "2.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
-
-[[package]]
-name = "mimalloc"
-version = "0.1.47"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1791cbe101e95af5764f06f20f6760521f7158f69dbf9d6baf941ee1bf6bc40"
-dependencies = [
- "libmimalloc-sys",
-]
 
 [[package]]
 name = "mime"
@@ -1078,6 +1059,7 @@ dependencies = [
 [[package]]
 name = "tiltak"
 version = "0.1.0"
+source = "git+https://github.com/MortenLohne/tiltak#532caa3f028848f7013cbaf4fd9f6e93ded8478d"
 dependencies = [
  "arrayvec",
  "async-channel",
@@ -1085,12 +1067,10 @@ dependencies = [
  "chrono",
  "half",
  "log",
- "mimalloc",
  "num-traits",
  "pgn-traits",
  "rand",
  "rand_distr",
- "serde",
  "sysinfo",
  "trybox",
 ]
