@@ -4,7 +4,6 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::io::BufRead;
-use tiltak::position::Komi;
 use tiltak::ptn::ptn_parser;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

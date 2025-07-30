@@ -196,7 +196,7 @@ fn run_match<const S: usize>(
         .expect("Failed to create Tokio runtime");
 
     #[cfg(feature = "http")]
-    tokio.block_on(http::http_server(external_game_states));
+    tokio.block_on(http::http_server(&external_game_states));
 
     handle.join().unwrap();
 }

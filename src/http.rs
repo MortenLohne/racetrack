@@ -1,25 +1,76 @@
 use std::{
+    convert::Infallible,
     sync::{Arc, Mutex},
+    thread,
     time::Duration,
 };
 
+use futures::{channel::mpsc::UnboundedSender, Stream};
 use pgn_traits::PgnPosition;
 
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::{sse, Sse},
     routing::get,
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use tiltak::position::Position;
+use tokio_stream::StreamExt as _;
 
 use crate::{
     game::{ExternalGameState, ExternalMove},
     uci::UciInfo,
 };
 
-type AppState<const S: usize> = Vec<Arc<Mutex<ExternalGameState<Position<S>>>>>;
+#[derive(Clone)]
+// Represents the shared state for the HTTP server
+// The app may contain state for one or mote concurrent games
+struct AppState<const S: usize> {
+    game_states: Vec<GameState<S>>,
+}
+
+#[derive(Clone)]
+struct GameState<const S: usize> {
+    pub external_game_state: Arc<Mutex<ExternalGameState<Position<S>>>>,
+    pub sse_clients: Arc<Mutex<Vec<SseClient>>>,
+}
+
+#[derive(Clone)]
+struct SseClient {
+    pub sender: UnboundedSender<serde_json::Value>,
+}
+
+impl<const S: usize> AppState<S> {
+    pub fn new(external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>]) -> Self {
+        AppState {
+            game_states: external_game_states
+                .into_iter()
+                .map(|external_game_state| GameState {
+                    external_game_state: external_game_state.clone(),
+                    sse_clients: Arc::new(Mutex::new(Vec::new())),
+                })
+                .collect::<Vec<_>>(),
+        }
+    }
+
+    fn broadcast_updates_loop(&self) {
+        let interval = Duration::from_millis(200);
+        loop {
+            thread::sleep(interval);
+            for game_state in &self.game_states {
+                let external_game_state = game_state.external_game_state.lock().unwrap();
+                let data: serde_json::Value =
+                    serde_json::to_value(GameStateOutput::from(external_game_state.clone()))
+                        .unwrap();
+                let mut sse_clients = game_state.sse_clients.lock().unwrap();
+                // Remove clients where the send fails. The receiver has been dropped, probably because they disconnected.
+                sse_clients.retain(|client| client.sender.unbounded_send(data.clone()).is_ok());
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,12 +124,22 @@ pub struct OutputMove {
     pub uci_info: UciInfo,
 }
 
-pub async fn http_server<const S: usize>(external_game_states: AppState<S>) {
+pub async fn http_server<const S: usize>(
+    external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>],
+) {
+    let shared_state = AppState::new(external_game_states);
+    let shared_state_clone = shared_state.clone();
+
+    thread::spawn(move || {
+        shared_state_clone.broadcast_updates_loop();
+    });
+
     println!("Starting HTTP server...");
-    let shared_state = external_game_states;
 
     let app = Router::new()
         .route("/{id}", get(get_game_state))
+        .layer(tower_http::cors::CorsLayer::permissive())
+        .route("/{id}/sse", get(sse_handler))
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(shared_state);
     println!("HTTP app created");
@@ -91,14 +152,49 @@ pub async fn http_server<const S: usize>(external_game_states: AppState<S>) {
     axum::serve(listener, app).await.unwrap();
 }
 
+async fn sse_handler<const S: usize>(
+    State(state): State<AppState<S>>,
+    Path(id): Path<String>,
+) -> Result<Sse<impl Stream<Item = Result<sse::Event, Infallible>>>, StatusCode> {
+    let id = id.parse::<usize>().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+
+    let client = SseClient { sender };
+
+    state
+        .game_states
+        .get(id)
+        .ok_or(StatusCode::NOT_FOUND)?
+        .sse_clients
+        .lock()
+        .unwrap()
+        .push(client.clone());
+
+    let mut last_state_sent = serde_json::Value::Null;
+
+    let stream = receiver.filter_map(move |data| {
+        let json_patch = json_patch::diff(&last_state_sent, &data);
+        if json_patch.is_empty() {
+            return None; // Skip sending if no changes
+        }
+        let event: sse::Event = sse::Event::default().data(json_patch.to_string());
+        last_state_sent = data;
+        Some(Ok(event))
+    });
+
+    Ok(Sse::new(stream).keep_alive(sse::KeepAlive::default()))
+}
+
 async fn get_game_state<const S: usize>(
-    State(external_game_states): State<AppState<S>>,
+    State(state): State<AppState<S>>,
     Path(id): Path<String>,
 ) -> Result<Json<GameStateOutput>, StatusCode> {
     let id = id.parse::<usize>().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let game_state_clone: ExternalGameState<_> = external_game_states
+    let game_state_clone: ExternalGameState<_> = state
+        .game_states
         .get(id)
         .ok_or(StatusCode::NOT_FOUND)?
+        .external_game_state
         .lock()
         .unwrap()
         .clone();
