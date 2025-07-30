@@ -144,7 +144,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             );
 
             let (move_string, last_uci_info) = match Self::play_move(
-                &game_state,
+                game_state,
                 engine_to_move,
                 &position_string,
                 &go_string,

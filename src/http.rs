@@ -46,7 +46,7 @@ impl<const S: usize> AppState<S> {
     pub fn new(external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>]) -> Self {
         AppState {
             game_states: external_game_states
-                .into_iter()
+                .iter()
                 .map(|external_game_state| GameState {
                     external_game_state: external_game_state.clone(),
                     sse_clients: Arc::new(Mutex::new(Vec::new())),

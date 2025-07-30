@@ -517,7 +517,7 @@ where
         }
     }
 
-    fn sprt_penta_stats(finished_games: &Vec<Option<Game<B>>>) -> PentanomialResult {
+    fn sprt_penta_stats(finished_games: &[Option<Game<B>>]) -> PentanomialResult {
         let mut result = PentanomialResult {
             ww: 0,
             wd: 0,
