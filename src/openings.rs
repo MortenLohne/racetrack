@@ -53,7 +53,7 @@ pub fn openings_from_move_list<B: PgnPosition, R: BufRead>(
         let line = line?;
 
         let mut moves = vec![];
-        let mut position = B::start_position_with_settings(&settings);
+        let mut position = B::start_position_with_settings(settings);
         for mv_string in line.split_whitespace() {
             let mv = position.move_from_san(mv_string).unwrap_or_else(|err| {
                 exit_with_error(&format!(
@@ -73,7 +73,7 @@ pub fn openings_from_move_list<B: PgnPosition, R: BufRead>(
             position.do_move(mv.clone());
         }
         openings.push(Opening {
-            root_position: B::start_position_with_settings(&settings),
+            root_position: B::start_position_with_settings(settings),
             moves,
         });
     }
@@ -91,7 +91,7 @@ pub fn openings_from_fen<B: PgnPosition, R: BufRead>(
         if line.chars().all(|ch| ch.is_whitespace()) {
             continue;
         }
-        let position = B::from_fen_with_settings(&line, &settings).unwrap_or_else(|err| {
+        let position = B::from_fen_with_settings(&line, settings).unwrap_or_else(|err| {
             exit_with_error(&format!("Failed to parse opening \"{}\": {}", line, err))
         });
         openings.push(Opening {
@@ -106,7 +106,7 @@ pub fn openings_from_ptn<B: PgnPosition, R: BufRead>(mut reader: R) -> io::Resul
     let mut input = String::new();
     reader.read_to_string(&mut input)?;
     match ptn_parser::parse_ptn(&input) {
-        Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        Err(err) => Err(io::Error::other(err)),
         Ok(games) => Ok({
             games
                 .into_iter()
