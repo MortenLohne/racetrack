@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 use std::io::{BufWriter, Result};
 use std::sync::atomic::{self, AtomicBool};
 use std::time::Duration;
