@@ -173,6 +173,7 @@ fn run_match<const S: usize>(
                     moves: vec![],
                 },
                 moves: vec![],
+                round_number: 0,
                 current_move_uci_info: None,
                 white_time_left: Duration::ZERO,
                 black_time_left: Duration::ZERO,

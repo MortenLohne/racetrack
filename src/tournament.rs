@@ -262,6 +262,7 @@ where
                                     engine_names[scheduled_game.black_engine_id.0].clone();
                                 game_state.opening = scheduled_game.opening.clone();
                                 game_state.moves = vec![];
+                                game_state.round_number = round_number + 1; // Round numbers start at 1 in the output
                                 game_state.current_move_uci_info = None;
                                 game_state.white_time_left = worker.engines
                                     [scheduled_game.white_engine_id.0]

@@ -81,6 +81,7 @@ struct GameStateOutput {
     half_komi: i8,
     opening_tps: String,
     opening_moves: Vec<String>,
+    round_number: usize,
     pub moves: Vec<OutputMove>,
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
@@ -101,6 +102,7 @@ impl<const S: usize> From<ExternalGameState<Position<S>>> for GameStateOutput {
                 .iter()
                 .map(|m| m.to_string())
                 .collect(),
+            round_number: external_game_state.round_number,
             moves: external_game_state
                 .moves
                 .iter()
