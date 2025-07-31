@@ -36,6 +36,7 @@ pub struct ExternalGameState<B: PgnPosition> {
     pub black_player: String,
     pub opening: Opening<B>,
     pub moves: Vec<ExternalMove<B>>,
+    pub round_number: usize,
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
     pub black_time_left: Duration,
