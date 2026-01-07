@@ -1,4 +1,4 @@
-use crate::sprt::{PentanomialResult, SprtParameters};
+use crate::{sprt::SprtParameters, stats::PentanomialResult};
 
 #[test]
 fn sprt_threshold_test() {

@@ -1,16 +1,6 @@
-use std::convert::TryInto;
+use crate::stats::{PentanomialResult, ResultExt};
 
 // This is an implementation of GSPRT under a pentanomial model.
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PentanomialResult {
-    pub ww: usize,
-    pub wd: usize,
-    pub wl: usize,
-    pub dd: usize,
-    pub dl: usize,
-    pub ll: usize,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SprtParameters {
@@ -51,47 +41,13 @@ impl SprtParameters {
     // See section 4.2 of https://archive.org/details/fishtest_mathematics/normalized_elo_practical/
     // Many thanks to Michel Van den Bergh.
     pub fn llr(self: SprtParameters, penta: PentanomialResult) -> f64 {
-        let (n, mean, variance) = penta.to_mean_and_variance();
+        let n = penta.count() as f64;
+        let mean = penta.score();
+        let variance = penta.variance();
         let sigma = (2.0 * variance).sqrt();
         let t = (mean - 0.5) / sigma;
         let a = 1.0 + (t - self.t0).powf(2.0);
         let b = 1.0 + (t - self.t1).powf(2.0);
         n * f64::ln(a / b)
-    }
-}
-
-impl PentanomialResult {
-    pub fn to_pdf(self: PentanomialResult) -> (f64, [f64; 5]) {
-        let penta = [
-            self.ll as f64,
-            self.dl as f64,
-            self.dd as f64 + self.wl as f64,
-            self.wd as f64,
-            self.ww as f64,
-        ];
-        let zeros = penta.iter().filter(|&x| *x == 0.0).count();
-        let regularisation = if zeros > 0 { 2.0 / zeros as f64 } else { 0.0 };
-        let n: f64 = penta.iter().sum();
-        (
-            n,
-            penta
-                .iter()
-                .map(|x| (x + regularisation) / n)
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-        )
-    }
-
-    pub fn to_mean_and_variance(self: PentanomialResult) -> (f64, f64, f64) {
-        let scores = [0.0, 0.25, 0.5, 0.75, 1.0];
-        let (n, pdf) = self.to_pdf();
-        let mean: f64 = pdf.iter().zip(scores).map(|(p, s)| p * s).sum();
-        let variance: f64 = pdf
-            .iter()
-            .zip(scores)
-            .map(|(p, s)| p * (s - mean).powf(2.0))
-            .sum();
-        (n, mean, variance)
     }
 }

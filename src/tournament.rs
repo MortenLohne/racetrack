@@ -1,10 +1,10 @@
 use crate::engine::{Engine, EngineBuilder};
+use crate::exit_with_error;
 use crate::game::ScheduledGame;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
-use crate::simulation::MatchScore;
-use crate::sprt::{PentanomialResult, SprtParameters};
-use crate::{exit_with_error, simulation};
+use crate::sprt::SprtParameters;
+use crate::stats::{elo_to_string, PentanomialResult, ResultExt, TrinomialResult};
 use board_game_traits::GameResult::*;
 use pgn_traits::PgnPosition;
 use std::num::NonZeroUsize;
@@ -423,39 +423,44 @@ where
             }
             TournamentType::BookTest(_) => (),
             TournamentType::Sprt => {
+                let wdl = TrinomialResult {
+                    w: engine_wins[1][0],
+                    d: engine_draws[1][0],
+                    l: engine_losses[1][0],
+                };
+                let penta = Self::sprt_penta_stats(&finished_games);
+
                 println!("Base engine : {}", engine_names[0]);
                 println!("Under test  : {}", engine_names[1]);
 
-                let score = MatchScore {
-                    wins: engine_wins[1][0],
-                    draws: engine_draws[1][0],
-                    losses: engine_losses[1][0],
-                };
-                let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
-                let lower = full_simulation.result_for_p(0.025);
-                let expected = score.score();
-                let upper = full_simulation.result_for_p(0.975);
-                let lower_elo = simulation::to_elo_string(lower);
-                let expected_elo = simulation::to_elo_string(expected);
-                let upper_elo = simulation::to_elo_string(upper);
+                let (tri_lower_elo, tri_expected_elo, tri_upper_elo) = wdl.logistic_elo();
                 println!(
-                    "Elo         : {} [{}, {}] (95%)",
-                    expected_elo, lower_elo, upper_elo
-                );
-                println!(
-                    "WDL         : W: {}, D: {}, L: {}",
-                    score.wins, score.draws, score.losses
+                    "Elo (WDL)   : {} [{}, {}] (95%)",
+                    elo_to_string(tri_expected_elo),
+                    elo_to_string(tri_lower_elo),
+                    elo_to_string(tri_upper_elo)
                 );
 
-                let penta = Self::sprt_penta_stats(&finished_games);
+                let (penta_lower_elo, penta_expected_elo, penta_upper_elo) = penta.logistic_elo();
                 println!(
-                    "Penta(0-2)  : {}, {}, {}, {}, {}",
-                    penta.ll,
-                    penta.dl,
-                    penta.dd + penta.wl,
-                    penta.wd,
-                    penta.ww
+                    "Elo (Penta) : {} [{}, {}] (95%)",
+                    elo_to_string(penta_expected_elo),
+                    elo_to_string(penta_lower_elo),
+                    elo_to_string(penta_upper_elo)
                 );
+
+                let (penta_lower_nelo, penta_expected_nelo, penta_upper_nelo) =
+                    penta.normalized_elo();
+                println!(
+                    "nElo (Penta): {} [{}, {}] (95%)",
+                    elo_to_string(penta_expected_nelo),
+                    elo_to_string(penta_lower_nelo),
+                    elo_to_string(penta_upper_nelo)
+                );
+
+                println!("WDL         : W: {}, D: {}, L: {}", wdl.w, wdl.d, wdl.l);
+
+                println!("Penta(0-2)  : {}", penta);
 
                 if let Some(sprt) = self.sprt {
                     let (elo0, elo1) = sprt.elo_bounds();
@@ -541,30 +546,22 @@ fn print_head_to_head_score(
     engine1_id: usize,
     engine2_id: usize,
 ) {
-    let score = MatchScore {
-        wins: engine_wins[engine1_id][engine2_id],
-        draws: engine_draws[engine1_id][engine2_id],
-        losses: engine_wins[engine2_id][engine1_id],
+    let wdl = TrinomialResult {
+        w: engine_wins[engine1_id][engine2_id],
+        d: engine_draws[engine1_id][engine2_id],
+        l: engine_wins[engine2_id][engine1_id],
     };
 
-    let full_simulation = simulation::FullWinstonSimulation::run_simulation(score);
-
-    let lower = full_simulation.result_for_p(0.025);
-    let expected = score.score();
-    let upper = full_simulation.result_for_p(0.975);
-
-    let lower_elo = simulation::to_elo_string(lower);
-    let expected_elo = simulation::to_elo_string(expected);
-    let upper_elo = simulation::to_elo_string(upper);
+    let (lower_elo, expected_elo, upper_elo) = wdl.logistic_elo();
 
     println!(
         "{} vs {}: {}, {} elo [{}, {}] (95% confidence).",
         engine_names[engine1_id],
         engine_names[engine2_id],
-        score,
-        expected_elo,
-        lower_elo,
-        upper_elo,
+        wdl,
+        elo_to_string(expected_elo),
+        elo_to_string(lower_elo),
+        elo_to_string(upper_elo),
     );
 }
 
