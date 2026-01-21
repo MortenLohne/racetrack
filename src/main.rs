@@ -19,8 +19,8 @@ mod engine;
 mod game;
 mod openings;
 mod pgn_writer;
-mod simulation;
 mod sprt;
+mod stats;
 #[cfg(test)]
 mod tests;
 mod tournament;
