@@ -2,3 +2,5 @@
 .idea
 # Emacs temp files
 *~
+*.ptn
+*.log
