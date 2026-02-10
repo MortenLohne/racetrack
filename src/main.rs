@@ -25,6 +25,7 @@ mod sprt;
 mod tests;
 mod tournament;
 pub mod uci;
+mod visualize;
 
 fn main() -> Result<()> {
     let cli_args = cli::parse_cli_arguments();
@@ -146,6 +147,7 @@ fn run_match<const S: usize>(
         pgn_writer: Mutex::new(pgnout),
         tournament_type: cli_args.tournament_type,
         sprt: cli_args.sprt,
+        visualize: cli_args.visualize,
     };
 
     let tournament = Tournament::new(settings);

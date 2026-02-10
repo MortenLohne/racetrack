@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Racetrack Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            border: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <iframe
+        src="https://ptn.ninja/&evalText=false&showControls=false&stackCounts=true&disableBoard=true&disableNavigation=true&disableText=true&theme=CYSwzgxg9gTsQ"
+        allow="fullscreen" id="ninja">
+    </iframe>
+
+    <script>
+        const PORT = 30564;
+
+        const ninja = document.getElementById("ninja");
+        let ptnNinjaHasLoaded = false;
+
+        window.onmessage = function (event) {
+            if (event.source != ninja.contentWindow) return;
+            if (!ptnNinjaHasLoaded && event.data.action == "GAME_STATE") {
+                ptnNinjaHasLoaded = true;
+                const ws = new WebSocket(`ws://localhost:${PORT}`);
+
+                ws.onmessage = function (event) {
+                    console.log(`[message] Received message: ${event.data}`);
+                    try {
+                        ninja.contentWindow.postMessage(JSON.parse(event.data), "*");
+                    } catch (error) {
+                        console.error(error);
+                    }
+                };
+                ws.onerror = function (error) {
+                    console.error(`[error] ${error}`);
+                };
+            }
+            console.log(JSON.stringify(event.data, null, 2));
+        }
+    </script>
+</body>
+
+</html>
