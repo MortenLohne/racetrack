@@ -204,11 +204,6 @@ where
         is_shutting_down: &'static AtomicBool,
         engine_builders: &[EngineBuilder],
     ) {
-        let engine_names: Vec<String> = engine_builders
-            .iter()
-            .map(|builder| builder.path.clone())
-            .collect();
-
         // Initialize engines
         println!("Initializing engines");
 
@@ -220,6 +215,13 @@ where
                     .map(|builder| Self::initialize_with_options_or_exit(builder))
                     .collect(),
             })
+            .collect();
+
+        // Take the engine names from the first worker.
+        let engine_names: Vec<String> = workers[0]
+            .engines
+            .iter()
+            .map(|engine| engine.name().to_owned())
             .collect();
 
         let tournament_arc = Arc::new(self);
