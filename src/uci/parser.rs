@@ -173,6 +173,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
     let mut time = 0;
     let mut nodes: u64 = 0;
     let mut nps: u64 = 0;
+    let mut multipv: u16 = 1;
 
     // These words are "special", and are used to delimit multi-word infos such as "pv"
     const KEYWORDS: &[&str] = &[
@@ -309,6 +310,22 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
                     })?;
                 nps = n;
             }
+            "multipv" => {
+                let n = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"multipv\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse multipv".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                multipv = n;
+            }
             _ => (),
         }
     }
@@ -322,6 +339,8 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
             hashfull: 0.0,
             cp_score: score,
             pv,
+            multipv,
+            suggestions: Vec::new(),
         })
     } else {
         Err(UciError::new_root(

@@ -123,5 +123,18 @@ pub struct UciInfo {
     pub nps: u64,
     pub hashfull: f64,
     pub cp_score: i64,
-    pub pv: Vec<String>, // One or more principal variations, sorted from best to worst
+    pub pv: Vec<String>, // Principal variation for this info line
+    /// 1-indexed MultiPV index of this info. 1 if the engine did not emit a `multipv` token.
+    #[cfg_attr(feature = "http", serde(default = "default_multipv"))]
+    pub multipv: u16,
+    /// Aggregated MultiPV suggestions (one entry per `multipv` index), sorted ascending.
+    /// Only populated on the top-level / "primary" UciInfo exposed to clients;
+    /// nested entries always carry an empty `suggestions` vector.
+    #[cfg_attr(feature = "http", serde(default, skip_serializing_if = "Vec::is_empty"))]
+    pub suggestions: Vec<UciInfo>,
+}
+
+#[cfg(feature = "http")]
+fn default_multipv() -> u16 {
+    1
 }
