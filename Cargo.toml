@@ -9,6 +9,7 @@ name = "racetrack"
 path = "src/main.rs"
 
 [features]
+default = ["http"]
 http = ["axum", "tokio", "serde", "tower-http", "futures", "tokio-stream", "json-patch", "serde_json"]
 futures = ["dep:futures"]
 tokio-stream = ["dep:tokio-stream"]
