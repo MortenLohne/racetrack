@@ -174,6 +174,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
     let mut nodes: u64 = 0;
     let mut nps: u64 = 0;
     let mut multipv: u16 = 1;
+    let mut wdl: Option<[u16; 3]> = None;
 
     // These words are "special", and are used to delimit multi-word infos such as "pv"
     const KEYWORDS: &[&str] = &[
@@ -185,6 +186,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
         "nps",
         "pv",
         "multipv",
+        "wdl",
         "currmove",
         "currmovenumber",
         "hashfull",
@@ -326,6 +328,24 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
                     })?;
                 multipv = n;
             }
+            "wdl" => {
+                let mut values = [0u16; 3];
+                for (i, slot) in values.iter_mut().enumerate() {
+                    let word = words_iter.next().ok_or_else(|| {
+                        UciError::new_parse_error(format!(
+                            "Did not receive enough values for key \"wdl\" (got {i}, need 3)"
+                        ))
+                    })?;
+                    *slot = word.parse().map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            format!("Failed to parse wdl value \"{word}\""),
+                            Box::new(err),
+                        )
+                    })?;
+                }
+                wdl = Some(values);
+            }
             _ => (),
         }
     }
@@ -340,6 +360,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
             cp_score: score,
             pv,
             multipv,
+            wdl,
             suggestions: Vec::new(),
         })
     } else {

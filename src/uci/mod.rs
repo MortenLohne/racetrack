@@ -127,6 +127,11 @@ pub struct UciInfo {
     /// 1-indexed MultiPV index of this info. 1 if the engine did not emit a `multipv` token.
     #[cfg_attr(feature = "http", serde(default = "default_multipv"))]
     pub multipv: u16,
+    /// Engine-reported win/draw/loss (from the engine's point-of-view), each as
+    /// permille in the range 0..=1000. `None` when the engine did not emit a
+    /// `wdl` token with this info line.
+    #[cfg_attr(feature = "http", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub wdl: Option<[u16; 3]>,
     /// Aggregated MultiPV suggestions (one entry per `multipv` index), sorted ascending.
     /// Only populated on the top-level / "primary" UciInfo exposed to clients;
     /// nested entries always carry an empty `suggestions` vector.
