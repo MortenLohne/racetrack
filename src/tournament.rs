@@ -1,5 +1,6 @@
 use crate::engine::{Engine, EngineBuilder};
 use crate::game::{ExternalGameState, ScheduledGame};
+#[cfg(feature = "http")]
 use crate::history::MatchHistory;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
@@ -206,7 +207,7 @@ where
         is_shutting_down: &'static AtomicBool,
         engine_builders: &[EngineBuilder],
         external_game_states: &[Arc<Mutex<ExternalGameState<B>>>],
-        history: &Arc<Mutex<MatchHistory<B>>>,
+        #[cfg(feature = "http")] history: &Arc<Mutex<MatchHistory<B>>>,
     ) {
         // Initialize engines
         println!("Initializing engines");
@@ -227,6 +228,7 @@ where
             .iter()
             .map(|engine| engine.name().to_owned())
             .collect();
+        #[cfg(feature = "http")]
         history.lock().unwrap().set_engines(engine_names.clone());
 
         let tournament_arc = Arc::new(self);
@@ -249,6 +251,7 @@ where
                 let thread_tournament = tournament_arc.clone();
                 let engine_names = engine_names.clone();
                 let external_game_state = external_game_state.clone();
+                #[cfg(feature = "http")]
                 let history = history.clone();
                 Builder::new()
                     .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
@@ -280,7 +283,9 @@ where
                                     .game_time;
                             }
 
+                            #[cfg(feature = "http")]
                             let white_engine = scheduled_game.white_engine_id.0;
+                            #[cfg(feature = "http")]
                             let black_engine = scheduled_game.black_engine_id.0;
 
                             let game = match scheduled_game.play_game(
@@ -289,13 +294,16 @@ where
                                 &thread_tournament.position_settings,
                             ) {
                                 Ok(game) => {
-                                    let final_state = external_state.lock().unwrap().clone();
-                                    history.lock().unwrap().record(
-                                        white_engine,
-                                        black_engine,
-                                        game.game_result_str,
-                                        final_state,
-                                    );
+                                    #[cfg(feature = "http")]
+                                    {
+                                        let final_state = external_state.lock().unwrap().clone();
+                                        history.lock().unwrap().record(
+                                            white_engine,
+                                            black_engine,
+                                            game.game_result_str,
+                                            final_state,
+                                        );
+                                    }
                                     game
                                 }
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
