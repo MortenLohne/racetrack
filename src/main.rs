@@ -182,6 +182,10 @@ fn run_match<const S: usize>(
                 current_move_uci_info: None,
                 white_time_left: Duration::ZERO,
                 black_time_left: Duration::ZERO,
+                white_time: Duration::ZERO,
+                white_increment: Duration::ZERO,
+                black_time: Duration::ZERO,
+                black_increment: Duration::ZERO,
             }))
         })
         .collect();

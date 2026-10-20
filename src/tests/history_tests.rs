@@ -30,6 +30,10 @@ fn state(round_number: usize, opening_len: usize, played: usize) -> ExternalGame
         current_move_uci_info: None,
         white_time_left: Duration::from_secs(1),
         black_time_left: Duration::from_secs(2),
+        white_time: Duration::from_secs(600),
+        white_increment: Duration::from_secs(5),
+        black_time: Duration::from_secs(300),
+        black_increment: Duration::from_secs(3),
     }
 }
 
@@ -134,6 +138,43 @@ mod http_output {
         let value = serde_json::to_value(output).unwrap();
         assert_eq!(value["moves"].as_array().unwrap().len(), 2);
         assert!(value["currentMoveUciInfo"].is_null());
+    }
+
+    #[test]
+    fn output_includes_time_control() {
+        let history = named_history(Some(20));
+        let value = serde_json::to_value(GameStateOutput::new(state(1, 0, 1), &history)).unwrap();
+        assert_eq!(
+            value["whiteTime"],
+            serde_json::json!({"secs": 600, "nanos": 0})
+        );
+        assert_eq!(
+            value["whiteIncrement"],
+            serde_json::json!({"secs": 5, "nanos": 0})
+        );
+        assert_eq!(
+            value["blackTime"],
+            serde_json::json!({"secs": 300, "nanos": 0})
+        );
+        assert_eq!(
+            value["blackIncrement"],
+            serde_json::json!({"secs": 3, "nanos": 0})
+        );
+    }
+
+    #[test]
+    fn finished_game_output_includes_time_control() {
+        let mut history = named_history(Some(20));
+        history.record(0, 1, Some("1-0"), state(1, 0, 2));
+        let value = serde_json::to_value(finished_game_output(&history, 1).unwrap()).unwrap();
+        assert_eq!(
+            value["whiteTime"],
+            serde_json::json!({"secs": 600, "nanos": 0})
+        );
+        assert_eq!(
+            value["blackIncrement"],
+            serde_json::json!({"secs": 3, "nanos": 0})
+        );
     }
 
     #[test]

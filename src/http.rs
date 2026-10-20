@@ -94,6 +94,10 @@ pub(crate) struct GameStateOutput {
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
     pub black_time_left: Duration,
+    white_time: Duration,
+    white_increment: Duration,
+    black_time: Duration,
+    black_increment: Duration,
     engines: Vec<String>,
     results: Vec<GameResultSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -132,6 +136,10 @@ impl GameStateOutput {
             current_move_uci_info: external_game_state.current_move_uci_info.clone(),
             white_time_left: external_game_state.white_time_left,
             black_time_left: external_game_state.black_time_left,
+            white_time: external_game_state.white_time,
+            white_increment: external_game_state.white_increment,
+            black_time: external_game_state.black_time,
+            black_increment: external_game_state.black_increment,
         }
     }
 }

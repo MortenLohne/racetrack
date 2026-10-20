@@ -41,6 +41,11 @@ pub struct ExternalGameState<B: PgnPosition> {
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
     pub black_time_left: Duration,
+    /// Each side's time control, set at game start.
+    pub white_time: Duration,
+    pub white_increment: Duration,
+    pub black_time: Duration,
+    pub black_increment: Duration,
 }
 
 #[derive(Clone)]

@@ -273,14 +273,16 @@ where
                                 game_state.moves = vec![];
                                 game_state.round_number = round_number + 1; // Round numbers start at 1 in the output
                                 game_state.current_move_uci_info = None;
-                                game_state.white_time_left = worker.engines
-                                    [scheduled_game.white_engine_id.0]
-                                    .builder()
-                                    .game_time;
-                                game_state.black_time_left = worker.engines
-                                    [scheduled_game.black_engine_id.0]
-                                    .builder()
-                                    .game_time;
+                                let white_builder =
+                                    worker.engines[scheduled_game.white_engine_id.0].builder();
+                                let black_builder =
+                                    worker.engines[scheduled_game.black_engine_id.0].builder();
+                                game_state.white_time = white_builder.game_time;
+                                game_state.white_increment = white_builder.increment;
+                                game_state.black_time = black_builder.game_time;
+                                game_state.black_increment = black_builder.increment;
+                                game_state.white_time_left = white_builder.game_time;
+                                game_state.black_time_left = black_builder.game_time;
                             }
 
                             #[cfg(feature = "http")]
