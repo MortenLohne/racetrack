@@ -8,8 +8,7 @@ use crate::pgn_writer::PgnWriter;
 use crate::tournament::{Tournament, TournamentSettings};
 use fern::InitError;
 use log::error;
-use openings::Opening;
-use rand::seq::SliceRandom;
+use openings::{Opening, OpeningBook};
 use std::fs;
 use std::sync::Mutex;
 use tiltak::position::{Position, Settings};
@@ -46,10 +45,10 @@ pub fn main_sized<const S: usize>(cli_args: CliOptions) -> Result<()> {
             println!("Loading opening book");
             openings::openings_from_file::<Position<S>>(path, cli_args.book_format)?
         }
-        None => vec![Opening {
+        None => OpeningBook::InMemory(vec![Opening {
             root_position: Position::start_position_with_komi(cli_args.komi),
             moves: vec![],
-        }],
+        }]),
     };
 
     if cli_args.shuffle_book {
@@ -99,7 +98,7 @@ fn setup_logger(file_name: &str) -> result::Result<(), fern::InitError> {
 }
 
 fn run_match<const S: usize>(
-    openings: Vec<Opening<Position<S>>>,
+    openings: OpeningBook<Position<S>>,
     cli_args: CliOptions,
     is_shutting_down: &'static AtomicBool,
 ) {

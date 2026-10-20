@@ -1,6 +1,6 @@
 use crate::engine::{Engine, EngineBuilder};
 use crate::game::ScheduledGame;
-use crate::openings::Opening;
+use crate::openings::OpeningBook;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
 use crate::sprt::{PentanomialResult, SprtParameters};
@@ -48,7 +48,7 @@ pub struct TournamentSettings<B: PgnPosition> {
     pub position_settings: B::Settings,
     pub concurrency: usize,
     pub num_games: usize,
-    pub openings: Vec<Opening<B>>,
+    pub openings: OpeningBook<B>,
     pub openings_start_index: usize,
     pub pgn_writer: Mutex<PgnWriter<B>>,
     pub tournament_type: TournamentType,
@@ -69,10 +69,11 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::Gauntlet(num_challengers) => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings[(self.openings_start_index
-                        + round_number / self.tournament_type.alignment())
-                        % self.openings.len()]
-                    .clone(),
+                    opening: self.openings.get(
+                        (self.openings_start_index
+                            + round_number / self.tournament_type.alignment())
+                            % self.openings.len(),
+                    ),
                     white_engine_id: if (round_number / num_challengers) % 2 == 0 {
                         EngineId(0)
                     } else {
@@ -89,10 +90,11 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::BookTest(num_engines) => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings[(self.openings_start_index
-                        + round_number / self.tournament_type.alignment())
-                        % self.openings.len()]
-                    .clone(),
+                    opening: self.openings.get(
+                        (self.openings_start_index
+                            + round_number / self.tournament_type.alignment())
+                            % self.openings.len(),
+                    ),
                     white_engine_id: EngineId((round_number / num_engines) % num_engines),
                     black_engine_id: EngineId(round_number % num_engines),
                     size: self.size,
@@ -101,10 +103,11 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::RoundRobin(num_engines) => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings[(self.openings_start_index
-                        + round_number / (num_engines * (num_engines - 1)))
-                        % self.openings.len()]
-                    .clone(),
+                    opening: self.openings.get(
+                        (self.openings_start_index
+                            + round_number / (num_engines * (num_engines - 1)))
+                            % self.openings.len(),
+                    ),
                     white_engine_id: EngineId((round_number / (num_engines - 1)) % num_engines),
                     black_engine_id: EngineId(
                         (round_number
@@ -118,9 +121,9 @@ impl<B: PgnPosition + Clone> TournamentSettings<B> {
             TournamentType::Sprt => (0..self.num_games)
                 .map(|round_number| ScheduledGame {
                     round_number,
-                    opening: self.openings
-                        [(self.openings_start_index + round_number / 2) % self.openings.len()]
-                    .clone(),
+                    opening: self
+                        .openings
+                        .get((self.openings_start_index + round_number / 2) % self.openings.len()),
                     white_engine_id: EngineId(round_number % 2),
                     black_engine_id: EngineId((round_number + 1) % 2),
                     size: self.size,
