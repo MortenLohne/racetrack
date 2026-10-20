@@ -165,14 +165,30 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     })
 }
 
+/// Whether an info line carries a bounded score, i.e. `score cp N` or
+/// `score mate N` directly followed by `lowerbound` or `upperbound`.
+/// Engines emit these on aspiration-window fail-highs/lows; the score is
+/// only a bound and the PV is usually truncated, so callers should ignore them.
+pub fn is_bounded_info(input: &str) -> bool {
+    let words: Vec<&str> = input.split_whitespace().collect();
+    (0..words.len()).any(|i| {
+        words[i] == "score"
+            && matches!(words.get(i + 1), Some(&"cp") | Some(&"mate"))
+            && matches!(words.get(i + 3), Some(&"lowerbound") | Some(&"upperbound"))
+    })
+}
+
 pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
     let mut pv: Vec<String> = vec![];
     let mut cp_score = None;
+    let mut mate = None;
     let mut depth: u16 = 0;
     let mut seldepth: u16 = 0;
     let mut time = 0;
     let mut nodes: u64 = 0;
     let mut nps: u64 = 0;
+    let mut multipv: u16 = 1;
+    let mut wdl: Option<[u16; 3]> = None;
 
     // These words are "special", and are used to delimit multi-word infos such as "pv"
     const KEYWORDS: &[&str] = &[
@@ -184,6 +200,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
         "nps",
         "pv",
         "multipv",
+        "wdl",
         "currmove",
         "currmovenumber",
         "hashfull",
@@ -210,6 +227,19 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
                         })?);
                     } else {
                         return Err(UciError::new_parse_error("No cp score".to_string()));
+                    }
+                }
+                Some("mate") => {
+                    if let Some(mate_string) = words_iter.next() {
+                        mate = Some(i32::from_str(mate_string).map_err(|err| {
+                            UciError::new_caused_by(
+                                UciErrorKind::ParseError,
+                                format!("Failed to parse mate score \"{}\"", mate_string),
+                                Box::new(err),
+                            )
+                        })?);
+                    } else {
+                        return Err(UciError::new_parse_error("No mate score".to_string()));
                     }
                 }
                 _ => return Err(UciError::new_parse_error("Invalid score".to_string())),
@@ -309,10 +339,44 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
                     })?;
                 nps = n;
             }
+            "multipv" => {
+                let n = words_iter
+                    .next()
+                    .ok_or(UciError::new_parse_error(
+                        "Did not receive a value for key \"multipv\"".to_string(),
+                    ))?
+                    .parse()
+                    .map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            "Failed to parse multipv".to_string(),
+                            Box::new(err),
+                        )
+                    })?;
+                multipv = n;
+            }
+            "wdl" => {
+                let mut values = [0u16; 3];
+                for (i, slot) in values.iter_mut().enumerate() {
+                    let word = words_iter.next().ok_or_else(|| {
+                        UciError::new_parse_error(format!(
+                            "Did not receive enough values for key \"wdl\" (got {i}, need 3)"
+                        ))
+                    })?;
+                    *slot = word.parse().map_err(|err| {
+                        UciError::new_caused_by(
+                            UciErrorKind::ParseError,
+                            format!("Failed to parse wdl value \"{word}\""),
+                            Box::new(err),
+                        )
+                    })?;
+                }
+                wdl = Some(values);
+            }
             _ => (),
         }
     }
-    if let Some(score) = cp_score {
+    if cp_score.is_some() || mate.is_some() {
         Ok(UciInfo {
             depth,
             seldepth,
@@ -320,8 +384,12 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
             nodes,
             nps,
             hashfull: 0.0,
-            cp_score: score,
+            cp_score,
+            mate,
             pv,
+            multipv,
+            wdl,
+            suggestions: Vec::new(),
         })
     } else {
         Err(UciError::new_root(

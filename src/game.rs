@@ -1,12 +1,13 @@
 use crate::engine::Engine;
 use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
-use crate::uci::parser::parse_info_string;
+use crate::uci::parser::{is_bounded_info, parse_info_string};
 use crate::uci::UciInfo;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
+use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -192,16 +193,29 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             position.do_move(mv.clone());
 
             let score_string = match &last_uci_info {
-                Some(uci_info) => format!(
-                    "{:+.2}/{} {:.2}s",
-                    match position.side_to_move() {
-                        // Flip sign if last move was black's
-                        Color::White => uci_info.cp_score as f64 / -100.0,
-                        Color::Black => uci_info.cp_score as f64 / 100.0,
-                    },
-                    uci_info.depth,
-                    time_taken.as_secs_f32(),
-                ),
+                Some(uci_info) => {
+                    // Flip sign if last move was black's
+                    let sign = match position.side_to_move() {
+                        Color::White => -1,
+                        Color::Black => 1,
+                    };
+                    let score = match (uci_info.mate, uci_info.cp_score) {
+                        // Mate scores in cutechess' notation, e.g. +M3
+                        (Some(mate), _) => {
+                            format!("{}M{}", if mate * sign < 0 { '-' } else { '+' }, mate.abs())
+                        }
+                        (None, Some(cp)) => {
+                            format!("{:+.2}", (cp * i64::from(sign)) as f64 / 100.0)
+                        }
+                        (None, None) => String::new(),
+                    };
+                    format!(
+                        "{}/{} {:.2}s",
+                        score,
+                        uci_info.depth,
+                        time_taken.as_secs_f32(),
+                    )
+                }
                 None => String::new(),
             };
             moves.push(PtnMove {
@@ -327,16 +341,22 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         engine_to_move.uci_write_line(go_string)?;
 
-        let mut last_uci_info: Option<UciInfo> = None;
+        // Aggregate MultiPV info lines by their multipv index so that the
+        // "primary" info (multipv == 1) exposed to clients carries every
+        // principal variation the engine has reported for the current search.
+        let mut multipv_map: BTreeMap<u16, UciInfo> = BTreeMap::new();
 
         loop {
             let input = engine_to_move.uci_read_line()?;
 
-            if input.starts_with("info") {
+            // Bounded scores (aspiration window fail-high/low) are unreliable
+            // and come with truncated PVs, so they are ignored entirely.
+            if input.starts_with("info") && !is_bounded_info(&input) {
                 match parse_info_string(&input) {
                     Ok(uci_info) => {
-                        game_state.lock().unwrap().current_move_uci_info = Some(uci_info.clone());
-                        last_uci_info = Some(uci_info);
+                        multipv_map.insert(uci_info.multipv, uci_info);
+                        let aggregated = build_aggregated_uci_info(&multipv_map);
+                        game_state.lock().unwrap().current_move_uci_info = aggregated;
                     }
                     Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
                 }
@@ -348,9 +368,26 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         .nth(1)
                         .unwrap_or_default()
                         .to_string(),
-                    last_uci_info,
+                    build_aggregated_uci_info(&multipv_map),
                 ));
             }
         }
     }
+}
+
+/// Build the aggregated `UciInfo` that is exposed to clients.
+///
+/// The returned value's own fields mirror the best-known principal variation
+/// (multipv == 1 when available, otherwise the lowest-indexed multipv), while
+/// the `suggestions` vector holds every multipv entry sorted by index.
+fn build_aggregated_uci_info(multipv_map: &BTreeMap<u16, UciInfo>) -> Option<UciInfo> {
+    let primary = multipv_map
+        .get(&1)
+        .or_else(|| multipv_map.values().next())?
+        .clone();
+    let suggestions: Vec<UciInfo> = multipv_map.values().cloned().collect();
+    Some(UciInfo {
+        suggestions,
+        ..primary
+    })
 }
