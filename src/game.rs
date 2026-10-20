@@ -43,11 +43,6 @@ pub struct ExternalGameState<B: PgnPosition> {
     pub black_time_left: Duration,
 }
 
-pub struct ExternalGameHistory<B: PgnPosition> {
-    pub opening: Opening<B>,
-    pub moves: Vec<ExternalMove<B>>,
-}
-
 #[derive(Clone)]
 pub struct ExternalMove<B: PgnPosition> {
     pub mv: B::Move,

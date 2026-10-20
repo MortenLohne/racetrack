@@ -8,8 +8,9 @@ use std::{io, process, result, thread};
 use crate::cli::CliOptions;
 use crate::engine::EngineBuilder;
 use crate::game::ExternalGameState;
+use crate::history::MatchHistory;
 use crate::pgn_writer::PgnWriter;
-use crate::tournament::{Tournament, TournamentSettings};
+use crate::tournament::{Tournament, TournamentSettings, TournamentType};
 use board_game_traits::Position as _;
 use fern::InitError;
 use log::error;
@@ -182,7 +183,15 @@ fn run_match<const S: usize>(
         })
         .collect();
 
+    let total_rounds = if matches!(cli_args.tournament_type, TournamentType::Sprt) {
+        None
+    } else {
+        Some(cli_args.games)
+    };
+    let history = Arc::new(Mutex::new(MatchHistory::<Position<S>>::new(total_rounds)));
+
     let external_game_states_clone = external_game_states.clone();
+    let history_clone = history.clone();
 
     let handle = thread::spawn(move || {
         tournament.play(
@@ -190,6 +199,7 @@ fn run_match<const S: usize>(
             is_shutting_down,
             &engine_builders,
             &external_game_states_clone,
+            &history_clone,
         );
     });
 
@@ -200,7 +210,7 @@ fn run_match<const S: usize>(
         .expect("Failed to create Tokio runtime");
 
     #[cfg(feature = "http")]
-    tokio.block_on(http::http_server(&external_game_states));
+    tokio.block_on(http::http_server(&external_game_states, &history));
 
     handle.join().unwrap();
 }

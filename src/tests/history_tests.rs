@@ -96,3 +96,49 @@ fn unknown_round_is_none() {
     let history = history();
     assert!(history.game(99).is_none());
 }
+
+#[cfg(feature = "http")]
+mod http_output {
+    use super::*;
+    use crate::http::{finished_game_output, GameStateOutput};
+
+    fn named_history(total_rounds: Option<usize>) -> MatchHistory<Position<6>> {
+        let mut history = MatchHistory::new(total_rounds);
+        history.set_engines(vec!["syntaks".to_string(), "takzero".to_string()]);
+        history
+    }
+
+    #[test]
+    fn output_includes_results_and_engines() {
+        let mut history = named_history(Some(20));
+        history.record(0, 1, Some("1-0"), state(1, 0, 2));
+        let value = serde_json::to_value(GameStateOutput::new(state(2, 0, 1), &history)).unwrap();
+        assert_eq!(value["engines"], serde_json::json!(["syntaks", "takzero"]));
+        assert_eq!(value["results"][0]["whiteEngine"], 0);
+        assert_eq!(value["results"][0]["roundNumber"], 1);
+        assert_eq!(value["totalRounds"], 20);
+    }
+
+    #[test]
+    fn output_omits_total_rounds_for_sprt() {
+        let history = named_history(None);
+        let value = serde_json::to_value(GameStateOutput::new(state(1, 0, 1), &history)).unwrap();
+        assert!(value.get("totalRounds").is_none());
+    }
+
+    #[test]
+    fn finished_game_output_has_moves() {
+        let mut history = named_history(Some(20));
+        history.record(0, 1, Some("1-0"), state(1, 0, 2));
+        let output = finished_game_output(&history, 1).unwrap();
+        let value = serde_json::to_value(output).unwrap();
+        assert_eq!(value["moves"].as_array().unwrap().len(), 2);
+        assert!(value["currentMoveUciInfo"].is_null());
+    }
+
+    #[test]
+    fn finished_game_output_unknown_round() {
+        let history = named_history(Some(20));
+        assert!(finished_game_output(&history, 7).is_none());
+    }
+}
