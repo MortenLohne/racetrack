@@ -120,3 +120,31 @@ fn parse_info_without_score_test() {
     assert!(parser::parse_info_string("info depth 12 currmove a1 currmovenumber 3").is_err());
     assert!(parser::parse_info_string("info depth 12 score lowerbound pv a1").is_err());
 }
+
+#[test]
+fn bounded_info_is_detected_test() {
+    // Syntaks' aspiration-window fail-high with a truncated PV
+    assert!(parser::is_bounded_info(
+        "info depth 24 seldepth 40 time 3781 nodes 79191264 nps 20942367 score cp 30 lowerbound wdl 264 606 130 hashfull 12 pv e3"
+    ));
+    assert!(parser::is_bounded_info(
+        "info depth 24 score cp -30 upperbound pv e3"
+    ));
+    assert!(parser::is_bounded_info(
+        "info depth 30 score mate 3 upperbound pv a1"
+    ));
+}
+
+#[test]
+fn exact_info_is_not_bounded_test() {
+    assert!(!parser::is_bounded_info(
+        "info depth 24 seldepth 40 time 3781 nodes 79191264 nps 20942367 score cp 30 wdl 264 606 130 hashfull 12 pv e3 e5"
+    ));
+    assert!(!parser::is_bounded_info(
+        "info depth 30 score mate 3 wdl 1000 0 0 pv a1 a2"
+    ));
+    // A bound keyword that doesn't qualify the score is not a bound
+    assert!(!parser::is_bounded_info(
+        "info depth 3 score cp 10 nodes 5 lowerbound pv a1"
+    ));
+}

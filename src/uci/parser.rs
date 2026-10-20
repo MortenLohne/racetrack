@@ -165,6 +165,19 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
     })
 }
 
+/// Whether an info line carries a bounded score, i.e. `score cp N` or
+/// `score mate N` directly followed by `lowerbound` or `upperbound`.
+/// Engines emit these on aspiration-window fail-highs/lows; the score is
+/// only a bound and the PV is usually truncated, so callers should ignore them.
+pub fn is_bounded_info(input: &str) -> bool {
+    let words: Vec<&str> = input.split_whitespace().collect();
+    (0..words.len()).any(|i| {
+        words[i] == "score"
+            && matches!(words.get(i + 1), Some(&"cp") | Some(&"mate"))
+            && matches!(words.get(i + 3), Some(&"lowerbound") | Some(&"upperbound"))
+    })
+}
+
 pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
     let mut pv: Vec<String> = vec![];
     let mut cp_score = None;

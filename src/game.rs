@@ -1,7 +1,7 @@
 use crate::engine::Engine;
 use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
-use crate::uci::parser::parse_info_string;
+use crate::uci::parser::{is_bounded_info, parse_info_string};
 use crate::uci::UciInfo;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
@@ -349,7 +349,9 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
         loop {
             let input = engine_to_move.uci_read_line()?;
 
-            if input.starts_with("info") {
+            // Bounded scores (aspiration window fail-high/low) are unreliable
+            // and come with truncated PVs, so they are ignored entirely.
+            if input.starts_with("info") && !is_bounded_info(&input) {
                 match parse_info_string(&input) {
                     Ok(uci_info) => {
                         multipv_map.insert(uci_info.multipv, uci_info);
