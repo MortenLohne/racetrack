@@ -142,3 +142,19 @@ mod http_output {
         assert!(finished_game_output(&history, 7).is_none());
     }
 }
+
+#[test]
+fn record_move_updates_moves_and_clocks() {
+    let mut game = state(1, 0, 1);
+    game.current_move_uci_info = Some(UciInfo::default());
+    game.record_move(
+        place(20),
+        UciInfo::default(),
+        Duration::ZERO,
+        Duration::from_secs(2),
+    );
+    assert_eq!(game.moves.len(), 2);
+    assert!(game.current_move_uci_info.is_none());
+    assert_eq!(game.white_time_left, Duration::ZERO);
+    assert_eq!(game.black_time_left, Duration::from_secs(2));
+}

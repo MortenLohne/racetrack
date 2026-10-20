@@ -49,6 +49,22 @@ pub struct ExternalMove<B: PgnPosition> {
     pub uci_info: UciInfo,
 }
 
+impl<B: PgnPosition> ExternalGameState<B> {
+    /// Record a played move and the clocks after it. Clears the in-progress info.
+    pub(crate) fn record_move(
+        &mut self,
+        mv: B::Move,
+        uci_info: UciInfo,
+        white_time_left: Duration,
+        black_time_left: Duration,
+    ) {
+        self.moves.push(ExternalMove { mv, uci_info });
+        self.current_move_uci_info = None;
+        self.white_time_left = white_time_left;
+        self.black_time_left = black_time_left;
+    }
+}
+
 impl<B: PgnPosition + Clone> ScheduledGame<B> {
     pub(crate) fn play_game(
         self,
@@ -225,6 +241,12 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         white_time -= time_taken;
                         white_time += white_inc;
                     } else {
+                        game_state.lock().unwrap().record_move(
+                            mv,
+                            last_uci_info.unwrap_or_default(),
+                            Duration::ZERO,
+                            black_time,
+                        );
                         break (Some("0-1"), "Black wins on time".to_string());
                     }
                 }
@@ -233,20 +255,22 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         black_time -= time_taken;
                         black_time += black_inc;
                     } else {
+                        game_state.lock().unwrap().record_move(
+                            mv,
+                            last_uci_info.unwrap_or_default(),
+                            white_time,
+                            Duration::ZERO,
+                        );
                         break (Some("1-0"), "White wins on time".to_string());
                     }
                 }
             }
-            {
-                let mut game_state = game_state.lock().unwrap();
-                game_state.moves.push(ExternalMove {
-                    mv,
-                    uci_info: last_uci_info.unwrap_or_default(),
-                });
-                game_state.current_move_uci_info = None;
-                game_state.white_time_left = white_time;
-                game_state.black_time_left = black_time;
-            }
+            game_state.lock().unwrap().record_move(
+                mv,
+                last_uci_info.unwrap_or_default(),
+                white_time,
+                black_time,
+            );
         };
 
         let date = Local::now();
