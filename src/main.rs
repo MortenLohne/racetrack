@@ -22,6 +22,7 @@ use tiltak::position::{Position, Settings};
 mod cli;
 mod engine;
 mod game;
+mod history;
 #[cfg(feature = "http")]
 mod http;
 mod openings;
