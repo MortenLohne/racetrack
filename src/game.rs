@@ -68,6 +68,16 @@ impl<B: PgnPosition> ExternalGameState<B> {
         self.white_time_left = white_time_left;
         self.black_time_left = black_time_left;
     }
+
+    /// Record that `color` ran out of time. The move that arrived after the flag
+    /// fell is not part of the game, so only that side's clock is zeroed.
+    pub(crate) fn flag(&mut self, color: Color) {
+        self.current_move_uci_info = None;
+        match color {
+            Color::White => self.white_time_left = Duration::ZERO,
+            Color::Black => self.black_time_left = Duration::ZERO,
+        }
+    }
 }
 
 impl<B: PgnPosition + Clone> ScheduledGame<B> {
@@ -191,6 +201,24 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
             let time_taken = start_time_for_move.elapsed();
 
+            // A move that arrives after the flag fell does not count (as in cutechess):
+            // the game ends on time at the position before it. This is checked before
+            // parsing and legality, so a late move loses on time even if it was also
+            // malformed or illegal. The move is not added to the PTN, the external
+            // state or `position`.
+            let mover = position.side_to_move();
+            let time_left = match mover {
+                Color::White => white_time,
+                Color::Black => black_time,
+            };
+            if time_taken > time_left {
+                game_state.lock().unwrap().flag(mover);
+                break match mover {
+                    Color::White => (Some("0-1"), "Black wins on time".to_string()),
+                    Color::Black => (Some("1-0"), "White wins on time".to_string()),
+                };
+            }
+
             let Ok(mv) = position.move_from_lan(&move_string) else {
                 break (
                     Some(forfeit_win_str(!position.side_to_move())),
@@ -242,32 +270,12 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
             match !position.side_to_move() {
                 Color::White => {
-                    if time_taken <= white_time {
-                        white_time -= time_taken;
-                        white_time += white_inc;
-                    } else {
-                        game_state.lock().unwrap().record_move(
-                            mv,
-                            last_uci_info.unwrap_or_default(),
-                            Duration::ZERO,
-                            black_time,
-                        );
-                        break (Some("0-1"), "Black wins on time".to_string());
-                    }
+                    white_time -= time_taken;
+                    white_time += white_inc;
                 }
                 Color::Black => {
-                    if time_taken <= black_time {
-                        black_time -= time_taken;
-                        black_time += black_inc;
-                    } else {
-                        game_state.lock().unwrap().record_move(
-                            mv,
-                            last_uci_info.unwrap_or_default(),
-                            white_time,
-                            Duration::ZERO,
-                        );
-                        break (Some("1-0"), "White wins on time".to_string());
-                    }
+                    black_time -= time_taken;
+                    black_time += black_inc;
                 }
             }
             game_state.lock().unwrap().record_move(

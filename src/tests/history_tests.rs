@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use board_game_traits::Position as _;
+use board_game_traits::{Color, Position as _};
 use tiltak::position::{Move, Position, Role, Square};
 
 use crate::game::{ExternalGameState, ExternalMove};
@@ -198,4 +198,21 @@ fn record_move_updates_moves_and_clocks() {
     assert!(game.current_move_uci_info.is_none());
     assert_eq!(game.white_time_left, Duration::ZERO);
     assert_eq!(game.black_time_left, Duration::from_secs(2));
+}
+
+#[test]
+fn flag_zeroes_only_the_flagged_clock() {
+    for (color, white_left, black_left) in [
+        (Color::White, Duration::ZERO, Duration::from_secs(2)),
+        (Color::Black, Duration::from_secs(1), Duration::ZERO),
+    ] {
+        let mut game = state(1, 0, 1);
+        game.current_move_uci_info = Some(UciInfo::default());
+        game.flag(color);
+        // The flagged move is not part of the game
+        assert_eq!(game.moves.len(), 1);
+        assert!(game.current_move_uci_info.is_none());
+        assert_eq!(game.white_time_left, white_left);
+        assert_eq!(game.black_time_left, black_left);
+    }
 }
