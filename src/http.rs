@@ -128,10 +128,19 @@ impl GameStateOutput {
             moves: external_game_state
                 .moves
                 .iter()
-                .map(|ExternalMove { mv, uci_info }| OutputMove {
-                    mv: mv.to_string(),
-                    uci_info: uci_info.clone(),
-                })
+                .map(
+                    |ExternalMove {
+                         mv,
+                         uci_info,
+                         white_time_left,
+                         black_time_left,
+                     }| OutputMove {
+                        mv: mv.to_string(),
+                        uci_info: uci_info.clone(),
+                        white_time_left: *white_time_left,
+                        black_time_left: *black_time_left,
+                    },
+                )
                 .collect(),
             current_move_uci_info: external_game_state.current_move_uci_info.clone(),
             white_time_left: external_game_state.white_time_left,
@@ -159,6 +168,8 @@ pub struct OutputMove {
     #[serde(rename = "move")]
     pub mv: String,
     pub uci_info: UciInfo,
+    pub white_time_left: Duration,
+    pub black_time_left: Duration,
 }
 
 pub async fn http_server<const S: usize>(

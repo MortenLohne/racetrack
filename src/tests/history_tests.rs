@@ -24,6 +24,8 @@ fn state(round_number: usize, opening_len: usize, played: usize) -> ExternalGame
             .map(|i| ExternalMove {
                 mv: place((10 + i) as u8),
                 uci_info: UciInfo::default(),
+                white_time_left: Duration::from_secs(100 - i as u64),
+                black_time_left: Duration::from_secs(200 - i as u64),
             })
             .collect(),
         round_number,
@@ -178,6 +180,40 @@ mod http_output {
     }
 
     #[test]
+    fn output_moves_include_clocks_after_each_move() {
+        let history = named_history(Some(20));
+        let value = serde_json::to_value(GameStateOutput::new(state(1, 0, 2), &history)).unwrap();
+        let moves = value["moves"].as_array().unwrap();
+        assert_eq!(
+            moves[0]["whiteTimeLeft"],
+            serde_json::json!({"secs": 100, "nanos": 0})
+        );
+        assert_eq!(
+            moves[0]["blackTimeLeft"],
+            serde_json::json!({"secs": 200, "nanos": 0})
+        );
+        assert_eq!(
+            moves[1]["whiteTimeLeft"],
+            serde_json::json!({"secs": 99, "nanos": 0})
+        );
+        assert_eq!(
+            moves[1]["blackTimeLeft"],
+            serde_json::json!({"secs": 199, "nanos": 0})
+        );
+    }
+
+    #[test]
+    fn finished_game_output_moves_include_clocks() {
+        let mut history = named_history(Some(20));
+        history.record(0, 1, Some("1-0"), state(1, 0, 1));
+        let value = serde_json::to_value(finished_game_output(&history, 1).unwrap()).unwrap();
+        assert_eq!(
+            value["moves"][0]["blackTimeLeft"],
+            serde_json::json!({"secs": 200, "nanos": 0})
+        );
+    }
+
+    #[test]
     fn finished_game_output_unknown_round() {
         let history = named_history(Some(20));
         assert!(finished_game_output(&history, 7).is_none());
@@ -195,6 +231,9 @@ fn record_move_updates_moves_and_clocks() {
         Duration::from_secs(2),
     );
     assert_eq!(game.moves.len(), 2);
+    // The new move carries the clocks as they stood after it
+    assert_eq!(game.moves[1].white_time_left, Duration::ZERO);
+    assert_eq!(game.moves[1].black_time_left, Duration::from_secs(2));
     assert!(game.current_move_uci_info.is_none());
     assert_eq!(game.white_time_left, Duration::ZERO);
     assert_eq!(game.black_time_left, Duration::from_secs(2));

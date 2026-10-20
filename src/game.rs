@@ -52,6 +52,10 @@ pub struct ExternalGameState<B: PgnPosition> {
 pub struct ExternalMove<B: PgnPosition> {
     pub mv: B::Move,
     pub uci_info: UciInfo,
+    /// White's remaining time after this move was played
+    pub white_time_left: Duration,
+    /// Black's remaining time after this move was played
+    pub black_time_left: Duration,
 }
 
 impl<B: PgnPosition> ExternalGameState<B> {
@@ -63,7 +67,12 @@ impl<B: PgnPosition> ExternalGameState<B> {
         white_time_left: Duration,
         black_time_left: Duration,
     ) {
-        self.moves.push(ExternalMove { mv, uci_info });
+        self.moves.push(ExternalMove {
+            mv,
+            uci_info,
+            white_time_left,
+            black_time_left,
+        });
         self.current_move_uci_info = None;
         self.white_time_left = white_time_left;
         self.black_time_left = black_time_left;
