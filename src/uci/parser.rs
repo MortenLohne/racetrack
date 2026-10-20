@@ -168,6 +168,7 @@ pub fn parse_option(input: &str) -> result::Result<UciOption, UciError> {
 pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
     let mut pv: Vec<String> = vec![];
     let mut cp_score = None;
+    let mut mate = None;
     let mut depth: u16 = 0;
     let mut seldepth: u16 = 0;
     let mut time = 0;
@@ -213,6 +214,19 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
                         })?);
                     } else {
                         return Err(UciError::new_parse_error("No cp score".to_string()));
+                    }
+                }
+                Some("mate") => {
+                    if let Some(mate_string) = words_iter.next() {
+                        mate = Some(i32::from_str(mate_string).map_err(|err| {
+                            UciError::new_caused_by(
+                                UciErrorKind::ParseError,
+                                format!("Failed to parse mate score \"{}\"", mate_string),
+                                Box::new(err),
+                            )
+                        })?);
+                    } else {
+                        return Err(UciError::new_parse_error("No mate score".to_string()));
                     }
                 }
                 _ => return Err(UciError::new_parse_error("Invalid score".to_string())),
@@ -349,7 +363,7 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
             _ => (),
         }
     }
-    if let Some(score) = cp_score {
+    if cp_score.is_some() || mate.is_some() {
         Ok(UciInfo {
             depth,
             seldepth,
@@ -357,7 +371,8 @@ pub fn parse_info_string(input: &str) -> Result<UciInfo, UciError> {
             nodes,
             nps,
             hashfull: 0.0,
-            cp_score: score,
+            cp_score,
+            mate,
             pv,
             multipv,
             wdl,

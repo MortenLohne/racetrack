@@ -193,16 +193,29 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             position.do_move(mv.clone());
 
             let score_string = match &last_uci_info {
-                Some(uci_info) => format!(
-                    "{:+.2}/{} {:.2}s",
-                    match position.side_to_move() {
-                        // Flip sign if last move was black's
-                        Color::White => uci_info.cp_score as f64 / -100.0,
-                        Color::Black => uci_info.cp_score as f64 / 100.0,
-                    },
-                    uci_info.depth,
-                    time_taken.as_secs_f32(),
-                ),
+                Some(uci_info) => {
+                    // Flip sign if last move was black's
+                    let sign = match position.side_to_move() {
+                        Color::White => -1,
+                        Color::Black => 1,
+                    };
+                    let score = match (uci_info.mate, uci_info.cp_score) {
+                        // Mate scores in cutechess' notation, e.g. +M3
+                        (Some(mate), _) => {
+                            format!("{}M{}", if mate * sign < 0 { '-' } else { '+' }, mate.abs())
+                        }
+                        (None, Some(cp)) => {
+                            format!("{:+.2}", (cp * i64::from(sign)) as f64 / 100.0)
+                        }
+                        (None, None) => String::new(),
+                    };
+                    format!(
+                        "{}/{} {:.2}s",
+                        score,
+                        uci_info.depth,
+                        time_taken.as_secs_f32(),
+                    )
+                }
                 None => String::new(),
             };
             moves.push(PtnMove {

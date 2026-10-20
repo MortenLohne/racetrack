@@ -75,3 +75,48 @@ fn parse_tc_test() {
         (Duration::from_millis(500), Duration::from_millis(100))
     );
 }
+
+#[test]
+fn parse_cp_info_with_wdl_test() {
+    // Syntaks' format, including an aspiration-window bound
+    let info = parser::parse_info_string(
+        "info depth 24 seldepth 40 time 3781 nodes 79191264 nps 20942367 score cp 30 lowerbound wdl 264 606 130 hashfull 12 pv e3 e5",
+    )
+    .unwrap();
+    assert_eq!(info.cp_score, Some(30));
+    assert_eq!(info.mate, None);
+    assert_eq!(info.wdl, Some([264, 606, 130]));
+    assert_eq!(info.pv, vec!["e3", "e5"]);
+}
+
+#[test]
+fn parse_mate_info_test() {
+    // Syntaks reports forced wins as mate scores only, in moves
+    let info = parser::parse_info_string(
+        "info depth 30 seldepth 9 time 120 nodes 1000 nps 8333 score mate 3 wdl 1000 0 0 hashfull 1 pv a1 a2 a3 a4 a5",
+    )
+    .unwrap();
+    assert_eq!(info.cp_score, None);
+    assert_eq!(info.mate, Some(3));
+    assert_eq!(info.wdl, Some([1000, 0, 0]));
+    assert_eq!(info.pv.len(), 5);
+}
+
+#[test]
+fn parse_mate_and_cp_info_test() {
+    // Takzero reports a mate score followed by a cp score on the same line
+    let info = parser::parse_info_string(
+        "info time 1000 nodes 500 nps 500 wdl 0 0 1000 score mate -2 score cp -100 pv a1 a2 a3",
+    )
+    .unwrap();
+    assert_eq!(info.cp_score, Some(-100));
+    assert_eq!(info.mate, Some(-2));
+    assert_eq!(info.wdl, Some([0, 0, 1000]));
+    assert_eq!(info.pv, vec!["a1", "a2", "a3"]);
+}
+
+#[test]
+fn parse_info_without_score_test() {
+    assert!(parser::parse_info_string("info depth 12 currmove a1 currmovenumber 3").is_err());
+    assert!(parser::parse_info_string("info depth 12 score lowerbound pv a1").is_err());
+}
