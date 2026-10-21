@@ -102,6 +102,10 @@ pub(crate) struct GameStateOutput {
     results: Vec<GameResultSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_rounds: Option<usize>,
+    /// Time since the engine to move was sent `go`; only while a move is in
+    /// progress. The side to move's clock is `*TimeLeft` minus this.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current_move_elapsed: Option<Duration>,
 }
 
 impl GameStateOutput {
@@ -149,6 +153,9 @@ impl GameStateOutput {
             white_increment: external_game_state.white_increment,
             black_time: external_game_state.black_time,
             black_increment: external_game_state.black_increment,
+            current_move_elapsed: external_game_state
+                .move_started
+                .map(|started| started.elapsed()),
         }
     }
 }

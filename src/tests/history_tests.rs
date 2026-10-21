@@ -36,6 +36,7 @@ fn state(round_number: usize, opening_len: usize, played: usize) -> ExternalGame
         white_increment: Duration::from_secs(5),
         black_time: Duration::from_secs(300),
         black_increment: Duration::from_secs(3),
+        move_started: None,
     }
 }
 
@@ -253,5 +254,44 @@ fn flag_zeroes_only_the_flagged_clock() {
         assert!(game.current_move_uci_info.is_none());
         assert_eq!(game.white_time_left, white_left);
         assert_eq!(game.black_time_left, black_left);
+    }
+}
+
+#[test]
+fn move_started_cleared_when_a_move_ends() {
+    let mut game = state(1, 0, 2);
+    game.move_started = Some(std::time::Instant::now());
+    game.record_move(
+        place(30),
+        UciInfo::default(),
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+    );
+    assert!(game.move_started.is_none());
+
+    let mut flagged = state(1, 0, 1);
+    flagged.move_started = Some(std::time::Instant::now());
+    flagged.flag(Color::White);
+    assert!(flagged.move_started.is_none());
+}
+
+#[cfg(feature = "http")]
+mod current_move_elapsed {
+    use super::*;
+    use crate::http::GameStateOutput;
+
+    #[test]
+    fn live_output_has_current_move_elapsed() {
+        let mut game = state(1, 0, 2);
+        game.move_started = Some(std::time::Instant::now() - Duration::from_millis(1500));
+        let json = serde_json::to_value(GameStateOutput::new(game, &history())).unwrap();
+        let secs = json["currentMoveElapsed"]["secs"].as_u64().unwrap();
+        assert!(secs >= 1, "elapsed {:?}", json["currentMoveElapsed"]);
+    }
+
+    #[test]
+    fn no_current_move_elapsed_between_moves() {
+        let json = serde_json::to_value(GameStateOutput::new(state(1, 0, 2), &history())).unwrap();
+        assert!(json.get("currentMoveElapsed").is_none());
     }
 }

@@ -186,6 +186,7 @@ fn run_match<const S: usize>(
                 white_increment: Duration::ZERO,
                 black_time: Duration::ZERO,
                 black_increment: Duration::ZERO,
+                move_started: None,
             }))
         })
         .collect();

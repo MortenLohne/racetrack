@@ -46,6 +46,9 @@ pub struct ExternalGameState<B: PgnPosition> {
     pub white_increment: Duration,
     pub black_time: Duration,
     pub black_increment: Duration,
+    /// When the engine to move was sent `go`, while a move is in progress.
+    /// Lets viewers that join mid-move show the side to move's clock correctly.
+    pub move_started: Option<Instant>,
 }
 
 #[derive(Clone)]
@@ -74,6 +77,7 @@ impl<B: PgnPosition> ExternalGameState<B> {
             black_time_left,
         });
         self.current_move_uci_info = None;
+        self.move_started = None;
         self.white_time_left = white_time_left;
         self.black_time_left = black_time_left;
     }
@@ -82,6 +86,7 @@ impl<B: PgnPosition> ExternalGameState<B> {
     /// fell is not part of the game, so only that side's clock is zeroed.
     pub(crate) fn flag(&mut self, color: Color) {
         self.current_move_uci_info = None;
+        self.move_started = None;
         match color {
             Color::White => self.white_time_left = Duration::ZERO,
             Color::Black => self.black_time_left = Duration::ZERO,
@@ -156,6 +161,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             };
 
             let start_time_for_move = Instant::now();
+            game_state.lock().unwrap().move_started = Some(start_time_for_move);
 
             let mut position_string = String::new();
 
