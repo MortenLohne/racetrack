@@ -1,12 +1,13 @@
 use crate::engine::Engine;
 use crate::openings::Opening;
 use crate::tournament::{EngineId, Worker};
-use crate::uci::parser::parse_info_string;
+use crate::uci::parser::{is_bounded_info, parse_info_string};
 use crate::uci::UciInfo;
 use board_game_traits::Color;
 use chrono::{Datelike, Local};
 use log::{error, warn};
 use pgn_traits::PgnPosition;
+use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -40,17 +41,57 @@ pub struct ExternalGameState<B: PgnPosition> {
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
     pub black_time_left: Duration,
-}
-
-pub struct ExternalGameHistory<B: PgnPosition> {
-    pub opening: Opening<B>,
-    pub moves: Vec<ExternalMove<B>>,
+    /// Each side's time control, set at game start.
+    pub white_time: Duration,
+    pub white_increment: Duration,
+    pub black_time: Duration,
+    pub black_increment: Duration,
+    /// When the engine to move was sent `go`, while a move is in progress.
+    /// Lets viewers that join mid-move show the side to move's clock correctly.
+    pub move_started: Option<Instant>,
 }
 
 #[derive(Clone)]
 pub struct ExternalMove<B: PgnPosition> {
     pub mv: B::Move,
     pub uci_info: UciInfo,
+    /// White's remaining time after this move was played
+    pub white_time_left: Duration,
+    /// Black's remaining time after this move was played
+    pub black_time_left: Duration,
+}
+
+impl<B: PgnPosition> ExternalGameState<B> {
+    /// Record a played move and the clocks after it. Clears the in-progress info.
+    pub(crate) fn record_move(
+        &mut self,
+        mv: B::Move,
+        uci_info: UciInfo,
+        white_time_left: Duration,
+        black_time_left: Duration,
+    ) {
+        self.moves.push(ExternalMove {
+            mv,
+            uci_info,
+            white_time_left,
+            black_time_left,
+        });
+        self.current_move_uci_info = None;
+        self.move_started = None;
+        self.white_time_left = white_time_left;
+        self.black_time_left = black_time_left;
+    }
+
+    /// Record that `color` ran out of time. The move that arrived after the flag
+    /// fell is not part of the game, so only that side's clock is zeroed.
+    pub(crate) fn flag(&mut self, color: Color) {
+        self.current_move_uci_info = None;
+        self.move_started = None;
+        match color {
+            Color::White => self.white_time_left = Duration::ZERO,
+            Color::Black => self.black_time_left = Duration::ZERO,
+        }
+    }
 }
 
 impl<B: PgnPosition + Clone> ScheduledGame<B> {
@@ -120,6 +161,7 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             };
 
             let start_time_for_move = Instant::now();
+            game_state.lock().unwrap().move_started = Some(start_time_for_move);
 
             let mut position_string = String::new();
 
@@ -174,6 +216,24 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
             let time_taken = start_time_for_move.elapsed();
 
+            // A move that arrives after the flag fell does not count (as in cutechess):
+            // the game ends on time at the position before it. This is checked before
+            // parsing and legality, so a late move loses on time even if it was also
+            // malformed or illegal. The move is not added to the PTN, the external
+            // state or `position`.
+            let mover = position.side_to_move();
+            let time_left = match mover {
+                Color::White => white_time,
+                Color::Black => black_time,
+            };
+            if time_taken > time_left {
+                game_state.lock().unwrap().flag(mover);
+                break match mover {
+                    Color::White => (Some("0-1"), "Black wins on time".to_string()),
+                    Color::Black => (Some("1-0"), "White wins on time".to_string()),
+                };
+            }
+
             let Ok(mv) = position.move_from_lan(&move_string) else {
                 break (
                     Some(forfeit_win_str(!position.side_to_move())),
@@ -192,16 +252,29 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
             position.do_move(mv.clone());
 
             let score_string = match &last_uci_info {
-                Some(uci_info) => format!(
-                    "{:+.2}/{} {:.2}s",
-                    match position.side_to_move() {
-                        // Flip sign if last move was black's
-                        Color::White => uci_info.cp_score as f64 / -100.0,
-                        Color::Black => uci_info.cp_score as f64 / 100.0,
-                    },
-                    uci_info.depth,
-                    time_taken.as_secs_f32(),
-                ),
+                Some(uci_info) => {
+                    // Flip sign if last move was black's
+                    let sign = match position.side_to_move() {
+                        Color::White => -1,
+                        Color::Black => 1,
+                    };
+                    let score = match (uci_info.mate, uci_info.cp_score) {
+                        // Mate scores in cutechess' notation, e.g. +M3
+                        (Some(mate), _) => {
+                            format!("{}M{}", if mate * sign < 0 { '-' } else { '+' }, mate.abs())
+                        }
+                        (None, Some(cp)) => {
+                            format!("{:+.2}", (cp * i64::from(sign)) as f64 / 100.0)
+                        }
+                        (None, None) => String::new(),
+                    };
+                    format!(
+                        "{}/{} {:.2}s",
+                        score,
+                        uci_info.depth,
+                        time_taken.as_secs_f32(),
+                    )
+                }
                 None => String::new(),
             };
             moves.push(PtnMove {
@@ -212,32 +285,20 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
             match !position.side_to_move() {
                 Color::White => {
-                    if time_taken <= white_time {
-                        white_time -= time_taken;
-                        white_time += white_inc;
-                    } else {
-                        break (Some("0-1"), "Black wins on time".to_string());
-                    }
+                    white_time -= time_taken;
+                    white_time += white_inc;
                 }
                 Color::Black => {
-                    if time_taken <= black_time {
-                        black_time -= time_taken;
-                        black_time += black_inc;
-                    } else {
-                        break (Some("1-0"), "White wins on time".to_string());
-                    }
+                    black_time -= time_taken;
+                    black_time += black_inc;
                 }
             }
-            {
-                let mut game_state = game_state.lock().unwrap();
-                game_state.moves.push(ExternalMove {
-                    mv,
-                    uci_info: last_uci_info.unwrap_or_default(),
-                });
-                game_state.current_move_uci_info = None;
-                game_state.white_time_left = white_time;
-                game_state.black_time_left = black_time;
-            }
+            game_state.lock().unwrap().record_move(
+                mv,
+                last_uci_info.unwrap_or_default(),
+                white_time,
+                black_time,
+            );
         };
 
         let date = Local::now();
@@ -327,16 +388,22 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
 
         engine_to_move.uci_write_line(go_string)?;
 
-        let mut last_uci_info: Option<UciInfo> = None;
+        // Aggregate MultiPV info lines by their multipv index so that the
+        // "primary" info (multipv == 1) exposed to clients carries every
+        // principal variation the engine has reported for the current search.
+        let mut multipv_map: BTreeMap<u16, UciInfo> = BTreeMap::new();
 
         loop {
             let input = engine_to_move.uci_read_line()?;
 
-            if input.starts_with("info") {
+            // Bounded scores (aspiration window fail-high/low) are unreliable
+            // and come with truncated PVs, so they are ignored entirely.
+            if input.starts_with("info") && !is_bounded_info(&input) {
                 match parse_info_string(&input) {
                     Ok(uci_info) => {
-                        game_state.lock().unwrap().current_move_uci_info = Some(uci_info.clone());
-                        last_uci_info = Some(uci_info);
+                        multipv_map.insert(uci_info.multipv, uci_info);
+                        let aggregated = build_aggregated_uci_info(&multipv_map);
+                        game_state.lock().unwrap().current_move_uci_info = aggregated;
                     }
                     Err(err) => warn!("Error in uci string \"{}\", ignoring. {}", input, err),
                 }
@@ -348,9 +415,26 @@ impl<B: PgnPosition + Clone> ScheduledGame<B> {
                         .nth(1)
                         .unwrap_or_default()
                         .to_string(),
-                    last_uci_info,
+                    build_aggregated_uci_info(&multipv_map),
                 ));
             }
         }
     }
+}
+
+/// Build the aggregated `UciInfo` that is exposed to clients.
+///
+/// The returned value's own fields mirror the best-known principal variation
+/// (multipv == 1 when available, otherwise the lowest-indexed multipv), while
+/// the `suggestions` vector holds every multipv entry sorted by index.
+fn build_aggregated_uci_info(multipv_map: &BTreeMap<u16, UciInfo>) -> Option<UciInfo> {
+    let primary = multipv_map
+        .get(&1)
+        .or_else(|| multipv_map.values().next())?
+        .clone();
+    let suggestions: Vec<UciInfo> = multipv_map.values().cloned().collect();
+    Some(UciInfo {
+        suggestions,
+        ..primary
+    })
 }

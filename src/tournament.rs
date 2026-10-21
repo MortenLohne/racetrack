@@ -1,5 +1,7 @@
 use crate::engine::{Engine, EngineBuilder};
 use crate::game::{ExternalGameState, ScheduledGame};
+#[cfg(feature = "http")]
+use crate::history::MatchHistory;
 use crate::openings::Opening;
 use crate::pgn_writer::PgnWriter;
 use crate::simulation::MatchScore;
@@ -205,12 +207,8 @@ where
         is_shutting_down: &'static AtomicBool,
         engine_builders: &[EngineBuilder],
         external_game_states: &[Arc<Mutex<ExternalGameState<B>>>],
+        #[cfg(feature = "http")] history: &Arc<Mutex<MatchHistory<B>>>,
     ) {
-        let engine_names: Vec<String> = engine_builders
-            .iter()
-            .map(|builder| builder.path.clone())
-            .collect();
-
         // Initialize engines
         println!("Initializing engines");
 
@@ -223,6 +221,15 @@ where
                     .collect(),
             })
             .collect();
+
+        // Take the engine names from the first worker.
+        let engine_names: Vec<String> = workers[0]
+            .engines
+            .iter()
+            .map(|engine| engine.name().to_owned())
+            .collect();
+        #[cfg(feature = "http")]
+        history.lock().unwrap().set_engines(engine_names.clone());
 
         let tournament_arc = Arc::new(self);
 
@@ -244,6 +251,8 @@ where
                 let thread_tournament = tournament_arc.clone();
                 let engine_names = engine_names.clone();
                 let external_game_state = external_game_state.clone();
+                #[cfg(feature = "http")]
+                let history = history.clone();
                 Builder::new()
                     .name(format!("#{}", worker.id)) // Note: The threads' names are used for logging
                     .spawn(move || {
@@ -264,22 +273,41 @@ where
                                 game_state.moves = vec![];
                                 game_state.round_number = round_number + 1; // Round numbers start at 1 in the output
                                 game_state.current_move_uci_info = None;
-                                game_state.white_time_left = worker.engines
-                                    [scheduled_game.white_engine_id.0]
-                                    .builder()
-                                    .game_time;
-                                game_state.black_time_left = worker.engines
-                                    [scheduled_game.black_engine_id.0]
-                                    .builder()
-                                    .game_time;
+                                let white_builder =
+                                    worker.engines[scheduled_game.white_engine_id.0].builder();
+                                let black_builder =
+                                    worker.engines[scheduled_game.black_engine_id.0].builder();
+                                game_state.white_time = white_builder.game_time;
+                                game_state.white_increment = white_builder.increment;
+                                game_state.black_time = black_builder.game_time;
+                                game_state.black_increment = black_builder.increment;
+                                game_state.white_time_left = white_builder.game_time;
+                                game_state.black_time_left = black_builder.game_time;
                             }
+
+                            #[cfg(feature = "http")]
+                            let white_engine = scheduled_game.white_engine_id.0;
+                            #[cfg(feature = "http")]
+                            let black_engine = scheduled_game.black_engine_id.0;
 
                             let game = match scheduled_game.play_game(
                                 &mut worker,
                                 &external_state,
                                 &thread_tournament.position_settings,
                             ) {
-                                Ok(game) => game,
+                                Ok(game) => {
+                                    #[cfg(feature = "http")]
+                                    {
+                                        let final_state = external_state.lock().unwrap().clone();
+                                        history.lock().unwrap().record(
+                                            white_engine,
+                                            black_engine,
+                                            game.game_result_str,
+                                            final_state,
+                                        );
+                                    }
+                                    game
+                                }
                                 // If an error occurs that wasn't handled in play_game(), soft-abort the match
                                 // and write a dummy game to the pgn output, so that later games won't be held up
                                 Err(err) => {

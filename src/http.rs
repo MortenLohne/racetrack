@@ -21,6 +21,7 @@ use tokio_stream::StreamExt as _;
 
 use crate::{
     game::{ExternalGameState, ExternalMove},
+    history::{GameResultSummary, MatchHistory},
     uci::UciInfo,
 };
 
@@ -29,6 +30,7 @@ use crate::{
 // The app may contain state for one or mote concurrent games
 struct AppState<const S: usize> {
     game_states: Vec<GameState<S>>,
+    history: Arc<Mutex<MatchHistory<Position<S>>>>,
 }
 
 #[derive(Clone)]
@@ -43,8 +45,12 @@ struct SseClient {
 }
 
 impl<const S: usize> AppState<S> {
-    pub fn new(external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>]) -> Self {
+    pub fn new(
+        external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>],
+        history: &Arc<Mutex<MatchHistory<Position<S>>>>,
+    ) -> Self {
         AppState {
+            history: history.clone(),
             game_states: external_game_states
                 .iter()
                 .map(|external_game_state| GameState {
@@ -60,10 +66,12 @@ impl<const S: usize> AppState<S> {
         loop {
             thread::sleep(interval);
             for game_state in &self.game_states {
-                let external_game_state = game_state.external_game_state.lock().unwrap();
-                let data: serde_json::Value =
-                    serde_json::to_value(GameStateOutput::from(external_game_state.clone()))
-                        .unwrap();
+                let external_game_state = game_state.external_game_state.lock().unwrap().clone();
+                let output = {
+                    let history = self.history.lock().unwrap();
+                    GameStateOutput::new(external_game_state, &history)
+                };
+                let data: serde_json::Value = serde_json::to_value(output).unwrap();
                 let mut sse_clients = game_state.sse_clients.lock().unwrap();
                 // Remove clients where the send fails. The receiver has been dropped, probably because they disconnected.
                 sse_clients.retain(|client| client.sender.unbounded_send(data.clone()).is_ok());
@@ -72,9 +80,9 @@ impl<const S: usize> AppState<S> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct GameStateOutput {
+pub(crate) struct GameStateOutput {
     white_player: String,
     black_player: String,
     size: usize,
@@ -86,11 +94,29 @@ struct GameStateOutput {
     pub current_move_uci_info: Option<UciInfo>,
     pub white_time_left: Duration,
     pub black_time_left: Duration,
+    white_time: Duration,
+    white_increment: Duration,
+    black_time: Duration,
+    black_increment: Duration,
+    engines: Vec<String>,
+    results: Vec<GameResultSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_rounds: Option<usize>,
+    /// Time since the engine to move was sent `go`; only while a move is in
+    /// progress. The side to move's clock is `*TimeLeft` minus this.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current_move_elapsed: Option<Duration>,
 }
 
-impl<const S: usize> From<ExternalGameState<Position<S>>> for GameStateOutput {
-    fn from(external_game_state: ExternalGameState<Position<S>>) -> Self {
+impl GameStateOutput {
+    pub(crate) fn new<const S: usize>(
+        external_game_state: ExternalGameState<Position<S>>,
+        history: &MatchHistory<Position<S>>,
+    ) -> Self {
         GameStateOutput {
+            engines: history.engines().to_vec(),
+            results: history.results(),
+            total_rounds: history.total_rounds(),
             white_player: external_game_state.white_player,
             black_player: external_game_state.black_player,
             size: S,
@@ -106,16 +132,41 @@ impl<const S: usize> From<ExternalGameState<Position<S>>> for GameStateOutput {
             moves: external_game_state
                 .moves
                 .iter()
-                .map(|ExternalMove { mv, uci_info }| OutputMove {
-                    mv: mv.to_string(),
-                    uci_info: uci_info.clone(),
-                })
+                .map(
+                    |ExternalMove {
+                         mv,
+                         uci_info,
+                         white_time_left,
+                         black_time_left,
+                     }| OutputMove {
+                        mv: mv.to_string(),
+                        uci_info: uci_info.clone(),
+                        white_time_left: *white_time_left,
+                        black_time_left: *black_time_left,
+                    },
+                )
                 .collect(),
             current_move_uci_info: external_game_state.current_move_uci_info.clone(),
             white_time_left: external_game_state.white_time_left,
             black_time_left: external_game_state.black_time_left,
+            white_time: external_game_state.white_time,
+            white_increment: external_game_state.white_increment,
+            black_time: external_game_state.black_time,
+            black_increment: external_game_state.black_increment,
+            current_move_elapsed: external_game_state
+                .move_started
+                .map(|started| started.elapsed()),
         }
     }
+}
+
+/// The full record of a finished game, or `None` if that round hasn't finished.
+pub(crate) fn finished_game_output<const S: usize>(
+    history: &MatchHistory<Position<S>>,
+    round: usize,
+) -> Option<GameStateOutput> {
+    let state = history.game(round)?.clone();
+    Some(GameStateOutput::new(state, history))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -124,12 +175,15 @@ pub struct OutputMove {
     #[serde(rename = "move")]
     pub mv: String,
     pub uci_info: UciInfo,
+    pub white_time_left: Duration,
+    pub black_time_left: Duration,
 }
 
 pub async fn http_server<const S: usize>(
     external_game_states: &[Arc<Mutex<ExternalGameState<Position<S>>>>],
+    history: &Arc<Mutex<MatchHistory<Position<S>>>>,
 ) {
-    let shared_state = AppState::new(external_game_states);
+    let shared_state = AppState::new(external_game_states, history);
     let shared_state_clone = shared_state.clone();
 
     thread::spawn(move || {
@@ -142,6 +196,8 @@ pub async fn http_server<const S: usize>(
         .route("/{id}", get(get_game_state))
         .layer(tower_http::cors::CorsLayer::permissive())
         .route("/{id}/sse", get(sse_handler))
+        .layer(tower_http::cors::CorsLayer::permissive())
+        .route("/games/{round}", get(get_finished_game))
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(shared_state);
     println!("HTTP app created");
@@ -200,6 +256,22 @@ async fn get_game_state<const S: usize>(
         .lock()
         .unwrap()
         .clone();
-    let game_state_output: GameStateOutput = game_state_clone.into();
+    let game_state_output = {
+        let history = state.history.lock().unwrap();
+        GameStateOutput::new(game_state_clone, &history)
+    };
     Ok(Json(game_state_output))
+}
+
+async fn get_finished_game<const S: usize>(
+    State(state): State<AppState<S>>,
+    Path(round): Path<String>,
+) -> Result<Json<GameStateOutput>, StatusCode> {
+    let round = round
+        .parse::<usize>()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let history = state.history.lock().unwrap();
+    finished_game_output(&history, round)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
 }
